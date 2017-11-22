@@ -1,0 +1,17 @@
+# Gradle
+.gradle/
+build/
+bin/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.springBeans
+
+# IDEA
+.idea/
+/out/
+
+# Projects
+_*

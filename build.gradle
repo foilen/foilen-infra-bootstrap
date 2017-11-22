@@ -1,0 +1,65 @@
+buildscript {
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+  dependencies {
+    classpath 'io.spring.gradle:dependency-management-plugin:1.0.3.RELEASE'
+  }
+}
+plugins {
+    id 'org.springframework.boot' version '1.5.7.RELEASE'
+}
+
+apply plugin: 'eclipse'
+apply plugin: 'java'
+apply plugin: 'io.spring.dependency-management'
+
+
+group = 'com.foilen'
+version = System.getenv('VERSION')?:'master-SNAPSHOT'
+
+repositories {
+  mavenLocal()
+  jcenter()
+  mavenCentral()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencyManagement {
+  imports {
+    mavenBom 'io.spring.platform:platform-bom:Brussels-SR5'
+  }
+}
+
+eclipse {
+  classpath {
+    downloadSources = true
+    downloadJavadoc = true
+  }
+}
+
+dependencies {
+
+  // Infra
+  compile "com.foilen:foilen-infra-api:$foilenInfraApiVersion"
+  compile "com.foilen:foilen-infra-plugin-core-execute:$foilenInfraPluginVersion"
+  compile "com.foilen:foilen-infra-plugin-core-system-fake:$foilenInfraPluginVersion"
+  compile "com.foilen:foilen-login-api:$foilenLoginApiVersion"
+
+  // Misc
+  compile "com.foilen:jl-smalltools:$smalltoolsVersion"
+  
+  // Databases
+  compile "mysql:mysql-connector-java"
+  compile "org.springframework.boot:spring-boot-starter-jdbc"
+
+}
+
+springBoot {
+  mainClass = 'com.foilen.infra.bootstrap.InfraBootstrapApp'
+}
+
+task wrapper(type: Wrapper) { gradleVersion = '4.1' }
