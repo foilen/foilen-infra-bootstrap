@@ -24,11 +24,9 @@ cd $RUN_PATH
 ./step-clean-compile.sh
 ./step-create-docker-image.sh
 ./step-upload-docker-image.sh
+./step-git-tag.sh
 
-echo ----[ Git Tag ]==----
-git tag -a -m $VERSION $VERSION
-
-echo ----[ Operation completed successfully ]==----
+echo ----[ Operation completed successfully ]----
 
 echo
 echo You can see published items on https://hub.docker.com/r/foilen/foilen-infra-bootstrap/tags/
