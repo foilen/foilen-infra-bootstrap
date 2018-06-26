@@ -21,7 +21,6 @@ public class InfraBootstrapSpringConfig {
     @Bean
     public ReloadableResourceBundleMessageSource messageSource() {
         ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-        // messageSource.addBasenames("classpath:/WEB-INF/webui/messages/messages");
 
         messageSource.setCacheSeconds(60);
         messageSource.setDefaultEncoding(CharsetTools.UTF_8.name());

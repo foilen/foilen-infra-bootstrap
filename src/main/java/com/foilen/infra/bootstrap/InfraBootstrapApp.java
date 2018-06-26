@@ -156,6 +156,19 @@ public class InfraBootstrapApp {
 
     }
 
+    private static int getInt(String prompt, int defaultValue) {
+
+        while (true) {
+            String textValue = getText(prompt, String.valueOf(defaultValue));
+            try {
+                return Integer.valueOf(textValue);
+            } catch (Exception e) {
+                System.out.println("\t[ERROR] Must be numeric");
+            }
+        }
+
+    }
+
     private static JdbcTemplate getJdbcTemplate(String serverName, int port, String databaseName, String databaseUserName, String databaseUserPassword) {
         MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
         dataSource.setServerName(serverName);
@@ -176,7 +189,11 @@ public class InfraBootstrapApp {
 
     private static String getText(String prompt, String defaultValue) {
 
-        System.out.print(prompt + " [" + defaultValue + "] ");
+        if (defaultValue == null) {
+            System.out.print(prompt + " [] ");
+        } else {
+            System.out.print(prompt + " [" + defaultValue + "] ");
+        }
         if (allDefaults) {
             System.out.println();
             return defaultValue;
@@ -225,8 +242,10 @@ public class InfraBootstrapApp {
         InfraUiConfig infraUiConfig = new InfraUiConfig();
         infraUiConfig.setMailFrom(getText("[COMMON] Email address that sends information and alerts (mail from)", "infra-ui@localhost").toLowerCase());
         infraUiConfig.setMailAlertsTo(getText("[COMMON] Email address where to send alerts", "admin@localhost").toLowerCase());
-        infraUiConfig.setMailHost("127.0.0.1");
-        infraUiConfig.setMailPort(25);
+        infraUiConfig.setMailHost(getText("[COMMON] Email server hostname/ip", "127.0.0.1"));
+        infraUiConfig.setMailPort(getInt("[COMMON] Email server port", 25));
+        infraUiConfig.setMailUsername(getText("[COMMON] Email server username", null));
+        infraUiConfig.setMailPassword(getText("[COMMON] Email server password", null));
 
         infraUiConfig.setCsrfSalt(SecureRandomTools.randomHexString(25));
 
@@ -305,7 +324,7 @@ public class InfraBootstrapApp {
         changes.linkAdd(loginMariaDBUser, MariaDBUser.LINK_TYPE_READ, loginMariaDBDatabase);
         changes.linkAdd(loginMariaDBUser, MariaDBUser.LINK_TYPE_WRITE, loginMariaDBDatabase);
 
-        // Create ainfra-ui database container
+        // Create infra-ui database container
         UnixUser uiDbUnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), "infra_ui_db", "/home/infra_ui_db", null, null);
         MariaDBServer uiMariaDBServer = new MariaDBServer(infraUiConfig.getMysqlDatabaseName() + "_db", "Infra Ui Database", SecureRandomTools.randomHexString(25));
         MariaDBDatabase uiMariaDBDatabase = new MariaDBDatabase(infraUiConfig.getMysqlDatabaseName(), "Infra Ui Database");
