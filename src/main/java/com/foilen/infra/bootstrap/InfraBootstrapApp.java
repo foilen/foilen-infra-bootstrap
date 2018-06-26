@@ -44,25 +44,26 @@ import com.foilen.infra.plugin.system.utils.DockerUtils;
 import com.foilen.infra.plugin.system.utils.UnixUsersAndGroupsUtils;
 import com.foilen.infra.plugin.system.utils.impl.DockerUtilsImpl;
 import com.foilen.infra.plugin.system.utils.impl.UnixUsersAndGroupsUtilsImpl;
+import com.foilen.infra.plugin.system.utils.model.ApplicationBuildDetails;
+import com.foilen.infra.plugin.system.utils.model.ContainersManageContext;
 import com.foilen.infra.plugin.system.utils.model.DockerState;
-import com.foilen.infra.plugin.v1.core.base.resources.Application;
-import com.foilen.infra.plugin.v1.core.base.resources.DnsEntry;
-import com.foilen.infra.plugin.v1.core.base.resources.InfraConfig;
-import com.foilen.infra.plugin.v1.core.base.resources.Machine;
-import com.foilen.infra.plugin.v1.core.base.resources.MariaDBDatabase;
-import com.foilen.infra.plugin.v1.core.base.resources.MariaDBServer;
-import com.foilen.infra.plugin.v1.core.base.resources.MariaDBUser;
-import com.foilen.infra.plugin.v1.core.base.resources.UnixUser;
-import com.foilen.infra.plugin.v1.core.base.resources.helper.UnixUserAvailableIdHelper;
-import com.foilen.infra.plugin.v1.core.base.resources.model.DnsEntryType;
 import com.foilen.infra.plugin.v1.core.context.ChangesContext;
 import com.foilen.infra.plugin.v1.core.service.IPResourceService;
 import com.foilen.infra.plugin.v1.core.service.internal.InternalChangeService;
-import com.foilen.infra.plugin.v1.model.base.IPApplicationDefinition;
 import com.foilen.infra.plugin.v1.model.infra.InfraLoginConfig;
 import com.foilen.infra.plugin.v1.model.infra.InfraUiConfig;
 import com.foilen.infra.plugin.v1.model.outputter.docker.DockerContainerOutputContext;
 import com.foilen.infra.plugin.v1.model.resource.LinkTypeConstants;
+import com.foilen.infra.resource.application.Application;
+import com.foilen.infra.resource.dns.DnsEntry;
+import com.foilen.infra.resource.dns.model.DnsEntryType;
+import com.foilen.infra.resource.infraconfig.InfraConfig;
+import com.foilen.infra.resource.machine.Machine;
+import com.foilen.infra.resource.mariadb.MariaDBDatabase;
+import com.foilen.infra.resource.mariadb.MariaDBServer;
+import com.foilen.infra.resource.mariadb.MariaDBUser;
+import com.foilen.infra.resource.unixuser.UnixUser;
+import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
 import com.foilen.smalltools.tools.DateTools;
 import com.foilen.smalltools.tools.InternetTools;
@@ -124,29 +125,45 @@ public class InfraBootstrapApp {
         File tmpDirectory = Files.createTempDir();
         System.out.println("\n---[ Install application (docker) ]---");
         List<Application> applications = resourceService.resourceFindAll(resourceService.createResourceQuery(Application.class));
-        List<Tuple2<DockerContainerOutputContext, IPApplicationDefinition>> outputContextAndApplicationDefinitions = applications.stream() //
-                .map(application -> {
-                    String applicationName = application.getName();
-                    String buildDirectory = tmpDirectory.getAbsolutePath() + "/" + applicationName + "/";
+        ContainersManageContext containersManageContext = new ContainersManageContext();
+        applications.stream().forEach(application -> {
+            String applicationName = application.getName();
+            String buildDirectory = tmpDirectory.getAbsolutePath() + "/" + applicationName + "/";
 
-                    // Add the fake dns
-                    application.getApplicationDefinition().addCopyWhenStartedContent("/tmp/fakedns.txt", Joiner.on('\n').join(finalFakeDnsHostsEntries));
-                    application.getApplicationDefinition().addExecuteWhenStartedCommand("cat /tmp/fakedns.txt >> /etc/hosts");
+            // Add the fake dns
+            application.getApplicationDefinition().addCopyWhenStartedContent("/tmp/fakedns.txt", Joiner.on('\n').join(finalFakeDnsHostsEntries));
+            application.getApplicationDefinition().addExecuteWhenStartedCommand("cat /tmp/fakedns.txt >> /etc/hosts");
 
-                    return new Tuple2<>(new DockerContainerOutputContext(applicationName, applicationName, applicationName, buildDirectory), application.getApplicationDefinition());
-                }).collect(Collectors.toList());
-        dockerUtils.containersManage(dockerState, outputContextAndApplicationDefinitions);
+            // Add to the container context
+            DockerContainerOutputContext outputContext = new DockerContainerOutputContext(applicationName, applicationName, applicationName, buildDirectory);
+            ApplicationBuildDetails applicationBuildDetails = new ApplicationBuildDetails();
+            applicationBuildDetails.setApplicationDefinition(application.getApplicationDefinition());
+            applicationBuildDetails.setOutputContext(outputContext);
+            containersManageContext.getAlwaysRunningApplications().add(applicationBuildDetails);
+        });
+        containersManageContext.setDockerState(dockerState);
+        dockerUtils.containersManage(containersManageContext);
 
         for (String containerName : dockerState.getRunningContainersByName().keySet()) {
             System.out.println("\t" + containerName + " [STARTED] (" + dockerState.getIpByName().get(containerName) + ")");
         }
-        if (!dockerState.getFailedContainerNames().isEmpty()) {
-            for (String containerName : dockerState.getFailedContainerNames()) {
+        if (!dockerState.getFailedContainersByName().isEmpty()) {
+            for (String containerName : dockerState.getFailedContainersByName().keySet()) {
                 System.out.println("\t" + containerName + " [FAILED]");
             }
             throw new InfraBootstrapException("Got Docker failures");
         }
 
+    }
+
+    private static JdbcTemplate getJdbcTemplate(String serverName, int port, String databaseName, String databaseUserName, String databaseUserPassword) {
+        MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
+        dataSource.setServerName(serverName);
+        dataSource.setPort(port);
+        dataSource.setDatabaseName(databaseName);
+        dataSource.setUser(databaseUserName);
+        dataSource.setPassword(databaseUserPassword);
+        return new JdbcTemplate(dataSource);
     }
 
     private static String getLine() {
@@ -497,16 +514,6 @@ public class InfraBootstrapApp {
         System.out.println();
 
         applicationContext.close();
-    }
-
-    private static JdbcTemplate getJdbcTemplate(String serverName, int port, String databaseName, String databaseUserName, String databaseUserPassword) {
-        MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
-        dataSource.setServerName(serverName);
-        dataSource.setPort(port);
-        dataSource.setDatabaseName(databaseName);
-        dataSource.setUser(databaseUserName);
-        dataSource.setPassword(databaseUserPassword);
-        return new JdbcTemplate(dataSource);
     }
 
 }

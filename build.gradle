@@ -44,10 +44,21 @@ eclipse {
 dependencies {
 
   // Infra
-  compile "com.foilen:foilen-infra-api:$foilenInfraApiVersion"
-  compile "com.foilen:foilen-infra-plugin-core-execute:$foilenInfraPluginVersion"
-  compile "com.foilen:foilen-infra-plugin-core-system-fake:$foilenInfraPluginVersion"
   compile "com.foilen:foilen-login-api:$foilenLoginApiVersion"
+  compile "com.foilen:foilen-infra-api:$foilenInfraApiVersion"
+  compile "com.foilen:foilen-infra-system-core-system-fake:$foilenInfraSystemVersion"
+  compile "com.foilen:foilen-infra-system-core-execute:$foilenInfraSystemVersion"
+  
+  // Resources
+  compile "com.foilen:foilen-infra-resource-application:0.1.0"
+  compile "com.foilen:foilen-infra-resource-dns:0.1.0"
+  compile "com.foilen:foilen-infra-resource-domain:0.1.0"
+  compile "com.foilen:foilen-infra-resource-infraconfig:0.1.0"
+  compile "com.foilen:foilen-infra-resource-machine:0.1.0"
+  compile "com.foilen:foilen-infra-resource-mariadb:0.1.0"
+  compile "com.foilen:foilen-infra-resource-unixuser:0.1.0"
+  compile "com.foilen:foilen-infra-resource-webcertificate:0.1.0"
+  compile "com.foilen:foilen-infra-resource-website:0.1.0"
 
   // Misc
   compile "com.foilen:jl-smalltools:$smalltoolsVersion"
