@@ -53,7 +53,7 @@ dependencies {
   compile "com.foilen:foilen-infra-resource-application:0.1.0"
   compile "com.foilen:foilen-infra-resource-dns:0.1.0"
   compile "com.foilen:foilen-infra-resource-domain:0.1.0"
-  compile "com.foilen:foilen-infra-resource-infraconfig:0.1.0"
+  compile "com.foilen:foilen-infra-resource-infraconfig:0.3.0"
   compile "com.foilen:foilen-infra-resource-machine:0.1.0"
   compile "com.foilen:foilen-infra-resource-mariadb:0.1.0"
   compile "com.foilen:foilen-infra-resource-unixuser:0.1.0"
@@ -61,6 +61,7 @@ dependencies {
   compile "com.foilen:foilen-infra-resource-website:0.1.0"
 
   // Misc
+  compile "args4j:args4j:$argsVersion"
   compile "com.foilen:jl-smalltools:$smalltoolsVersion"
   
   // Databases

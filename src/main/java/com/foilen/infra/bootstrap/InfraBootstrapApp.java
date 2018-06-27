@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
@@ -213,30 +215,28 @@ public class InfraBootstrapApp {
             br = new BufferedReader(new InputStreamReader(System.in));
         }
 
-        List<String> arguments = new ArrayList<>(Arrays.asList(args));
-
-        // Check the login mode
-        boolean isDebug = false;
-        boolean isInfo = false;
-        if (arguments.remove("--debug")) {
-            isDebug = true;
+        // Get the parameters
+        InfraBootstrapOptions options = new InfraBootstrapOptions();
+        CmdLineParser cmdLineParser = new CmdLineParser(options);
+        try {
+            cmdLineParser.parseArgument(args);
+        } catch (CmdLineException e) {
+            e.printStackTrace();
+            showUsage();
+            return;
         }
-        if (arguments.remove("--info")) {
-            isInfo = true;
-        }
 
-        if (isDebug) {
+        // Check the logging mode
+        if (options.debug) {
             LogbackTools.changeConfig("/logback-debug.xml");
-        } else if (isInfo) {
+        } else if (options.info) {
             LogbackTools.changeConfig("/logback-info.xml");
         } else {
             LogbackTools.changeConfig("/logback-quiet.xml");
         }
 
         // Check if automatically getting the defaults
-        if (arguments.remove("--allDefaults")) {
-            allDefaults = true;
-        }
+        allDefaults = options.allDefaults;
 
         // Prepare config
         InfraUiConfig infraUiConfig = new InfraUiConfig();
@@ -533,6 +533,12 @@ public class InfraBootstrapApp {
         System.out.println();
 
         applicationContext.close();
+    }
+
+    private static void showUsage() {
+        System.out.println("Usage:");
+        CmdLineParser cmdLineParser = new CmdLineParser(new InfraBootstrapOptions());
+        cmdLineParser.printUsage(System.out);
     }
 
 }
