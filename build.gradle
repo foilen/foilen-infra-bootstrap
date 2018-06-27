@@ -63,6 +63,7 @@ dependencies {
   // Misc
   compile "args4j:args4j:$argsVersion"
   compile "com.foilen:jl-smalltools:$smalltoolsVersion"
+  compile "org.jsoup:jsoup:1.11.3"
   
   // Databases
   compile "mysql:mysql-connector-java"

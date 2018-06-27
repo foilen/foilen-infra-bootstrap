@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -60,6 +63,7 @@ import com.foilen.infra.resource.application.Application;
 import com.foilen.infra.resource.dns.DnsEntry;
 import com.foilen.infra.resource.dns.model.DnsEntryType;
 import com.foilen.infra.resource.infraconfig.InfraConfig;
+import com.foilen.infra.resource.infraconfig.InfraConfigPlugin;
 import com.foilen.infra.resource.machine.Machine;
 import com.foilen.infra.resource.mariadb.MariaDBDatabase;
 import com.foilen.infra.resource.mariadb.MariaDBServer;
@@ -77,6 +81,7 @@ import com.foilen.smalltools.tools.ThreadTools;
 import com.foilen.smalltools.tuple.Tuple2;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.io.Files;
 import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
 
@@ -181,6 +186,37 @@ public class InfraBootstrapApp {
         return new JdbcTemplate(dataSource);
     }
 
+    private static OnlineFileDetails getLatestVersionBintray(String packageName) {
+        try {
+            // Get the version
+            Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
+            Elements links = doc.select("a");
+            String version = links.stream() //
+                    .map(it -> it.text().replace("/", "")) //
+                    .map(it -> it.split("\\.")) //
+                    .filter(it -> it.length == 3) //
+                    .map(it -> new int[] { Integer.valueOf(it[0]), Integer.valueOf(it[1]), Integer.valueOf(it[2]) }) //
+                    .sorted((a, b) -> ComparisonChain.start() //
+                            .compare(b[0], a[0]) //
+                            .compare(b[1], a[1]) //
+                            .compare(b[2], a[2]) //
+                            .result()) //
+                    .map(it -> "" + it[0] + "." + it[1] + "." + it[2]) //
+                    .findFirst().get(); //
+
+            // Get the jar
+            String jarUrl = "https://dl.bintray.com/foilen/maven/com/foilen/" + packageName + "/" + version + "/" + packageName + "-" + version + ".jar";
+
+            OnlineFileDetails onlineFileDetails = new OnlineFileDetails();
+            onlineFileDetails.setJarUrl(jarUrl);
+            onlineFileDetails.setVersion(version);
+            return onlineFileDetails;
+        } catch (IOException e) {
+            throw new InfraBootstrapException("Problem getting the folder", e);
+        }
+
+    }
+
     private static String getLine() {
         try {
             return br.readLine();
@@ -279,7 +315,7 @@ public class InfraBootstrapApp {
         System.out.println(JsonTools.prettyPrint(loginConfig));
         System.out.println("---[ UI ]---");
         System.out.println(JsonTools.prettyPrint(infraUiConfig));
-        System.out.println("Press a key to continue...");
+        System.out.println("Press enter to continue...");
         getLine();
 
         // Prepare the system
@@ -375,6 +411,30 @@ public class InfraBootstrapApp {
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMariaDBDatabase);
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMariaDBUser);
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiUnixUser);
+
+        // Get the most recent plugins
+        System.out.println("\n===[ Get the most recent plugins list ]===");
+        List<String> pluginNames = Arrays.asList("apachephp", "application", "bind9", "composableapplication", "dns", "domain", "email", "infraconfig", "letsencrypt", "machine", "mariadb", "unixuser",
+                "urlredirection", "webcertificate", "website");
+        List<InfraConfigPlugin> infraConfigPlugins = new ArrayList<>();
+        for (String nextPlugin : pluginNames) {
+            System.out.println("Plugin: " + nextPlugin);
+
+            try {
+                OnlineFileDetails onlineFileDetails = getLatestVersionBintray("foilen-infra-resource-" + nextPlugin);
+
+                System.out.println("\tVersion: " + onlineFileDetails.getVersion() + " URL: " + onlineFileDetails.getJarUrl());
+
+                InfraConfigPlugin infraConfigPlugin = new InfraConfigPlugin(onlineFileDetails.getJarUrl(), null);
+                infraConfigPlugins.add(infraConfigPlugin);
+                changes.resourceAdd(infraConfigPlugin);
+                changes.linkAdd(infraConfig, LinkTypeConstants.USES, infraConfigPlugin);
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
+
+        }
 
         // Apply and start
         internalChangeService.changesExecute(changes);
@@ -499,6 +559,12 @@ public class InfraBootstrapApp {
             linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiMariaDBDatabase)));
             linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiMariaDBUser)));
             linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiUnixUser)));
+
+            // Add plugins
+            infraConfigPlugins.forEach(plugin -> {
+                resourcesToAdd.add(new ResourceDetails(resourceService, plugin));
+                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), LinkTypeConstants.USES, new ResourceDetails(resourceService, plugin)));
+            });
 
             ResponseWithStatus responseWithStatus = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
 
