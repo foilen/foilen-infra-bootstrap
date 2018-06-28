@@ -467,7 +467,7 @@ public class InfraBootstrapApp {
                 InfraConfigPlugin infraConfigPlugin = new InfraConfigPlugin(onlineFileDetails.getJarUrl(), null);
                 infraConfigPlugins.add(infraConfigPlugin);
                 changes.resourceAdd(infraConfigPlugin);
-                changes.linkAdd(infraConfig, LinkTypeConstants.USES, infraConfigPlugin);
+                changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, infraConfigPlugin);
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(1);
@@ -602,7 +602,7 @@ public class InfraBootstrapApp {
             // Add plugins
             infraConfigPlugins.forEach(plugin -> {
                 resourcesToAdd.add(new ResourceDetails(resourceService, plugin));
-                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), LinkTypeConstants.USES, new ResourceDetails(resourceService, plugin)));
+                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, plugin)));
             });
 
             ResponseWithStatus responseWithStatus = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
