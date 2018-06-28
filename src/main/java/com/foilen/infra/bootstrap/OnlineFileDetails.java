@@ -9,7 +9,9 @@
  */
 package com.foilen.infra.bootstrap;
 
-public class OnlineFileDetails {
+import com.foilen.smalltools.tools.AbstractBasics;
+
+public class OnlineFileDetails extends AbstractBasics {
 
     private String version;
     private String jarUrl;
@@ -22,12 +24,14 @@ public class OnlineFileDetails {
         return version;
     }
 
-    public void setJarUrl(String jarUrl) {
+    public OnlineFileDetails setJarUrl(String jarUrl) {
         this.jarUrl = jarUrl;
+        return this;
     }
 
-    public void setVersion(String version) {
+    public OnlineFileDetails setVersion(String version) {
         this.version = version;
+        return this;
     }
 
 }

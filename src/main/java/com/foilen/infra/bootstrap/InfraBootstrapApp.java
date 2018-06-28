@@ -19,8 +19,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -34,6 +36,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import com.foilen.infra.api.InfraApiService;
 import com.foilen.infra.api.InfraApiServiceImpl;
@@ -41,6 +44,8 @@ import com.foilen.infra.api.request.ChangesRequest;
 import com.foilen.infra.api.request.LinkDetails;
 import com.foilen.infra.api.request.ResourceDetails;
 import com.foilen.infra.api.response.ResponseWithStatus;
+import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
+import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
 import com.foilen.infra.plugin.core.system.common.service.IPPluginServiceImpl;
 import com.foilen.infra.plugin.core.system.fake.CommonServicesContextBean;
 import com.foilen.infra.plugin.core.system.fake.InitSystemBean;
@@ -95,6 +100,8 @@ public class InfraBootstrapApp {
     private static BufferedReader br;
 
     static private boolean allDefaults = false;
+
+    private static RestTemplate restTemplate = new RestTemplate();
 
     private static void applyState(IPResourceService resourceService, DockerState dockerState) {
 
@@ -217,6 +224,22 @@ public class InfraBootstrapApp {
 
     }
 
+    private static OnlineFileDetails getLatestVersionDockerHub(String imageName) {
+        DockerHubTagsResponse tags = restTemplate.getForObject("https://hub.docker.com/v2/repositories/{imageName}/tags/", DockerHubTagsResponse.class,
+                Collections.singletonMap("imageName", imageName));
+
+        Optional<DockerHubTag> tag = tags.getResults().stream() //
+                .filter(it -> !"latest".equals(it.getName())) //
+                .findFirst();
+
+        if (tag.isPresent()) {
+            return new OnlineFileDetails() //
+                    .setVersion(tag.get().getName());
+        }
+
+        return null;
+    }
+
     private static String getLine() {
         try {
             return br.readLine();
@@ -249,6 +272,18 @@ public class InfraBootstrapApp {
 
         if (br == null) {
             br = new BufferedReader(new InputStreamReader(System.in));
+        }
+
+        // Get the latest version of apps
+        OnlineFileDetails loginVersionDetails = getLatestVersionDockerHub("foilen/foilen-login");
+        String loginLatestVersion = "latest";
+        if (loginVersionDetails != null) {
+            loginLatestVersion = loginVersionDetails.getVersion();
+        }
+        OnlineFileDetails uiVersionDetails = getLatestVersionDockerHub("foilen/foilen-infra-ui");
+        String uiLatestVersion = "latest";
+        if (uiVersionDetails != null) {
+            uiLatestVersion = uiVersionDetails.getVersion();
         }
 
         // Get the parameters
@@ -285,6 +320,7 @@ public class InfraBootstrapApp {
 
         infraUiConfig.setCsrfSalt(SecureRandomTools.randomHexString(25));
 
+        String uiVersion = getText("[UI] Docker Image Version", uiLatestVersion);
         infraUiConfig.setBaseUrl(getText("[UI] Base URL", "http://infra.localhost").toLowerCase());
         // TODO Support HTTPS
 
@@ -294,6 +330,7 @@ public class InfraBootstrapApp {
         infraUiConfig.setLoginCookieSignatureSalt(SecureRandomTools.randomHexString(25));
 
         infraUiConfig.getLoginConfigDetails().setAppId(SecureRandomTools.randomHexString(10));
+        String loginVersion = getText("[Login] Docker Image Version", loginLatestVersion);
         infraUiConfig.getLoginConfigDetails().setBaseUrl(getText("[LOGIN] Base URL", "http://login.localhost").toLowerCase());
         InfraLoginConfig loginConfig = new InfraLoginConfig();
         loginConfig.setAdministratorEmail(infraUiConfig.getMailAlertsTo());
@@ -388,15 +425,17 @@ public class InfraBootstrapApp {
 
         InfraConfig infraConfig = new InfraConfig();
         infraConfig.setApplicationId(loginConfig.getApplicationId());
-        infraConfig.setLoginAdministratorEmail(loginConfig.getAdministratorEmail());
-        infraConfig.setLoginCookieSignatureSalt(loginConfig.getCookieSignatureSalt());
-        infraConfig.setLoginCsrfSalt(loginConfig.getCsrfSalt());
         infraConfig.setLoginDomainName(loginConfig.getLoginBaseUrl().split("/")[2]);
         infraConfig.setLoginEmailFrom(loginConfig.getFromEmail());
-        infraConfig.setUiAlertsToEmail(infraUiConfig.getMailAlertsTo());
-        infraConfig.setUiCsrfSalt(infraUiConfig.getCsrfSalt());
+        infraConfig.setLoginAdministratorEmail(loginConfig.getAdministratorEmail());
+        infraConfig.setLoginCsrfSalt(loginConfig.getCsrfSalt());
+        infraConfig.setLoginCookieSignatureSalt(loginConfig.getCookieSignatureSalt());
+        infraConfig.setLoginVersion(loginVersion);
         infraConfig.setUiDomainName(infraUiConfig.getBaseUrl().split("/")[2]);
         infraConfig.setUiEmailFrom(infraUiConfig.getMailFrom());
+        infraConfig.setUiAlertsToEmail(infraUiConfig.getMailAlertsTo());
+        infraConfig.setUiCsrfSalt(infraUiConfig.getCsrfSalt());
+        infraConfig.setUiVersion(uiVersion);
 
         changes.resourceAdd(infraConfig);
 
