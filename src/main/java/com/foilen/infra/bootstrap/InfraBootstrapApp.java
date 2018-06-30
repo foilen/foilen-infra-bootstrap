@@ -120,7 +120,7 @@ public class InfraBootstrapApp {
         for (DnsEntry dnsEntry : resourceService.resourceFindAll(resourceService.createResourceQuery(DnsEntry.class))) {
             if (supportedDnsType.contains(dnsEntry.getType())) {
                 System.out.println("\t" + dnsEntry.getName() + " / " + dnsEntry.getType() + " (SET)");
-                fakeDnsHostsEntries.add("172.20.0.1 " + dnsEntry.getName() + " #FakeDNS");
+                fakeDnsHostsEntries.add("172.17.0.1 " + dnsEntry.getName() + " #FakeDNS");
             } else {
                 System.out.println("\t" + dnsEntry.getName() + " / " + dnsEntry.getType() + " (SKIPPED)");
             }
