@@ -16,13 +16,19 @@ import org.kohsuke.args4j.Option;
  */
 public class InfraBootstrapOptions {
 
-    @Option(name = "--debug", usage = "To log everything (default: false)")
-    public boolean debug;
+    @Option(name = "--help", usage = "To show this help")
+    public boolean help;
 
-    @Option(name = "--info", usage = "To log information (default: false)")
+    @Option(name = "--debug", usage = "To log everything")
+    public boolean debug;
+    @Option(name = "--info", usage = "To log information")
     public boolean info;
 
-    @Option(name = "--allDefaults", usage = "To use all the default answers (default: false)")
+    @Option(name = "--genJsonAnswers", usage = "To generate a JSON file with all the questions and defaults answers, then stop")
+    public boolean genJsonAnswers;
+    @Option(name = "--allDefaults", usage = "To use all the default answers")
     public boolean allDefaults;
+    @Option(name = "--jsonAnswerFile", metaVar = "file", usage = "To use a JSON file with all the questions and answers (default: none)")
+    public String jsonAnswerFile;
 
 }

@@ -7,7 +7,7 @@
     http://opensource.org/licenses/MIT
 
  */
-package com.foilen.infra.bootstrap;
+package com.foilen.infra.bootstrap.model;
 
 import com.foilen.smalltools.tools.AbstractBasics;
 

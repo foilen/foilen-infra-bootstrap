@@ -21,7 +21,9 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -46,6 +48,8 @@ import com.foilen.infra.api.request.ResourceDetails;
 import com.foilen.infra.api.response.ResponseWithStatus;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
+import com.foilen.infra.bootstrap.model.OnlineFileDetails;
+import com.foilen.infra.bootstrap.model.QuestionAndAnswer;
 import com.foilen.infra.plugin.core.system.common.service.IPPluginServiceImpl;
 import com.foilen.infra.plugin.core.system.fake.CommonServicesContextBean;
 import com.foilen.infra.plugin.core.system.fake.InitSystemBean;
@@ -99,9 +103,11 @@ public class InfraBootstrapApp {
 
     private static BufferedReader br;
 
-    static private boolean allDefaults = false;
+    private static InfraBootstrapOptions options;
 
     private static RestTemplate restTemplate = new RestTemplate();
+    private static Map<String, String> answers = new HashMap<>();
+    private static List<QuestionAndAnswer> genAnswers = new ArrayList<>();
 
     private static void applyState(IPResourceService resourceService, DockerState dockerState) {
 
@@ -250,16 +256,33 @@ public class InfraBootstrapApp {
 
     private static String getText(String prompt, String defaultValue) {
 
+        // Fill Q&A if generating it
+        if (options.genJsonAnswers) {
+            genAnswers.add(new QuestionAndAnswer(prompt, defaultValue));
+            return defaultValue;
+        }
+
+        // Prompt
         if (defaultValue == null) {
             System.out.print(prompt + " [] ");
         } else {
             System.out.print(prompt + " [" + defaultValue + "] ");
         }
-        if (allDefaults) {
+
+        // Auto answer from JSON file
+        if (!Strings.isNullOrEmpty(options.jsonAnswerFile)) {
+            String value = answers.get(prompt);
+            System.out.println(value);
+            return value;
+        }
+
+        // Auto answer with default
+        if (options.allDefaults) {
             System.out.println();
             return defaultValue;
         }
 
+        // Get interactive input
         String input = getLine();
         if (Strings.isNullOrEmpty(input)) {
             return defaultValue;
@@ -274,26 +297,26 @@ public class InfraBootstrapApp {
             br = new BufferedReader(new InputStreamReader(System.in));
         }
 
-        // Get the latest version of apps
-        OnlineFileDetails loginVersionDetails = getLatestVersionDockerHub("foilen/foilen-login");
-        String loginLatestVersion = "latest";
-        if (loginVersionDetails != null) {
-            loginLatestVersion = loginVersionDetails.getVersion();
-        }
-        OnlineFileDetails uiVersionDetails = getLatestVersionDockerHub("foilen/foilen-infra-ui");
-        String uiLatestVersion = "latest";
-        if (uiVersionDetails != null) {
-            uiLatestVersion = uiVersionDetails.getVersion();
-        }
-
         // Get the parameters
-        InfraBootstrapOptions options = new InfraBootstrapOptions();
+        options = new InfraBootstrapOptions();
         CmdLineParser cmdLineParser = new CmdLineParser(options);
         try {
             cmdLineParser.parseArgument(args);
         } catch (CmdLineException e) {
             e.printStackTrace();
             showUsage();
+            return;
+        }
+
+        // Check help
+        if (options.help) {
+            showUsage();
+            return;
+        }
+
+        // Check valid options
+        if (options.genJsonAnswers && Strings.isNullOrEmpty(options.jsonAnswerFile)) {
+            System.out.println("When generating the answers, you must also specify in which file using --jsonAnswerFile");
             return;
         }
 
@@ -306,8 +329,23 @@ public class InfraBootstrapApp {
             LogbackTools.changeConfig("/logback-quiet.xml");
         }
 
-        // Check if automatically getting the defaults
-        allDefaults = options.allDefaults;
+        // Load the json answer file if present
+        if (!options.genJsonAnswers && !Strings.isNullOrEmpty(options.jsonAnswerFile)) {
+            List<QuestionAndAnswer> questionAndAnswers = JsonTools.readFromFileAsList(options.jsonAnswerFile, QuestionAndAnswer.class);
+            questionAndAnswers.forEach(it -> answers.put(it.getQuestion(), it.getAnswer()));
+        }
+
+        // Get the latest version of apps
+        OnlineFileDetails loginVersionDetails = getLatestVersionDockerHub("foilen/foilen-login");
+        String loginLatestVersion = "latest";
+        if (loginVersionDetails != null) {
+            loginLatestVersion = loginVersionDetails.getVersion();
+        }
+        OnlineFileDetails uiVersionDetails = getLatestVersionDockerHub("foilen/foilen-infra-ui");
+        String uiLatestVersion = "latest";
+        if (uiVersionDetails != null) {
+            uiLatestVersion = uiVersionDetails.getVersion();
+        }
 
         // Prepare config
         InfraUiConfig infraUiConfig = new InfraUiConfig();
@@ -346,6 +384,13 @@ public class InfraBootstrapApp {
         loginConfig.setMysqlHostName("127.0.0.1");
         loginConfig.setMysqlDatabaseUserName(getText("[LOGIN] MySQL Database User Name", "infra_login").toLowerCase());
         loginConfig.setMysqlDatabasePassword(getText("[LOGIN] MySQL Database User Password", SecureRandomTools.randomHexString(25)).toLowerCase());
+
+        // Save gen to file if requested
+        if (!genAnswers.isEmpty()) {
+            System.out.println("Saving questions and answers to " + options.jsonAnswerFile);
+            JsonTools.writeToFile(options.jsonAnswerFile, genAnswers);
+            return;
+        }
 
         System.out.println("\nReview the config:");
         System.out.println("---[ Login ]---");
