@@ -69,6 +69,7 @@ import com.foilen.infra.plugin.v1.model.infra.InfraUiConfig;
 import com.foilen.infra.plugin.v1.model.outputter.docker.DockerContainerOutputContext;
 import com.foilen.infra.plugin.v1.model.resource.LinkTypeConstants;
 import com.foilen.infra.resource.application.Application;
+import com.foilen.infra.resource.bind9.Bind9Server;
 import com.foilen.infra.resource.dns.DnsEntry;
 import com.foilen.infra.resource.dns.model.DnsEntryType;
 import com.foilen.infra.resource.infraconfig.InfraConfig;
@@ -385,6 +386,12 @@ public class InfraBootstrapApp {
         loginConfig.setMysqlDatabaseUserName(getText("[LOGIN] MySQL Database User Name", "infra_login").toLowerCase());
         loginConfig.setMysqlDatabasePassword(getText("[LOGIN] MySQL Database User Password", SecureRandomTools.randomHexString(25)).toLowerCase());
 
+        // Prepare Bind9
+        Bind9Server bind9Server = new Bind9Server();
+        bind9Server.setName("infra");
+        bind9Server.setAdminEmail(infraUiConfig.getMailAlertsTo());
+        bind9Server.getNsDomainNames().add(getText("[DNS] Name Server Domain", "ns1.localhost").toLowerCase());
+
         // Save gen to file if requested
         if (!genAnswers.isEmpty()) {
             System.out.println("Saving questions and answers to " + options.jsonAnswerFile);
@@ -519,6 +526,13 @@ public class InfraBootstrapApp {
             }
 
         }
+
+        // Create Bind9
+        UnixUser bind9UnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), "infra_bind9", "/home/infra_bind9", null, null);
+        changes.resourceAdd(bind9Server);
+        changes.resourceAdd(bind9UnixUser);
+        changes.linkAdd(bind9Server, LinkTypeConstants.RUN_AS, bind9UnixUser);
+        changes.linkAdd(bind9Server, LinkTypeConstants.INSTALLED_ON, machine);
 
         // Apply and start
         internalChangeService.changesExecute(changes);
