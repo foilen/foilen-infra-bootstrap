@@ -50,20 +50,19 @@ dependencies {
   compile "com.foilen:foilen-infra-system-core-execute:$foilenInfraSystemVersion"
   
   // Resources
-  compile "com.foilen:foilen-infra-resource-application:0.1.0"
-  compile "com.foilen:foilen-infra-resource-bind9:0.1.0"
+  compile "com.foilen:foilen-infra-resource-application:0.1.1"
+  compile "com.foilen:foilen-infra-resource-bind9:0.1.1"
   compile "com.foilen:foilen-infra-resource-dns:0.1.0"
   compile "com.foilen:foilen-infra-resource-domain:0.1.0"
-  compile "com.foilen:foilen-infra-resource-infraconfig:0.3.2"
+  compile "com.foilen:foilen-infra-resource-infraconfig:0.3.3"
   compile "com.foilen:foilen-infra-resource-machine:0.1.0"
-  compile "com.foilen:foilen-infra-resource-mariadb:0.1.0"
-  compile "com.foilen:foilen-infra-resource-unixuser:0.1.0"
+  compile "com.foilen:foilen-infra-resource-mariadb:0.1.1"
+  compile "com.foilen:foilen-infra-resource-unixuser:0.1.2"
   compile "com.foilen:foilen-infra-resource-webcertificate:0.1.0"
-  compile "com.foilen:foilen-infra-resource-website:0.1.0"
+  compile "com.foilen:foilen-infra-resource-website:0.1.2"
 
   // Misc
   compile "args4j:args4j:$argsVersion"
-  compile "com.foilen:jl-smalltools:$smalltoolsVersion"
   compile "org.jsoup:jsoup:1.11.3"
   
   // Databases

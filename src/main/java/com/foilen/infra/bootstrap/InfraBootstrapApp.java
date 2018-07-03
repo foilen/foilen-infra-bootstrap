@@ -55,8 +55,10 @@ import com.foilen.infra.plugin.core.system.fake.CommonServicesContextBean;
 import com.foilen.infra.plugin.core.system.fake.InitSystemBean;
 import com.foilen.infra.plugin.core.system.fake.InternalServicesContextBean;
 import com.foilen.infra.plugin.system.utils.DockerUtils;
+import com.foilen.infra.plugin.system.utils.UnixShellAndFsUtils;
 import com.foilen.infra.plugin.system.utils.UnixUsersAndGroupsUtils;
 import com.foilen.infra.plugin.system.utils.impl.DockerUtilsImpl;
+import com.foilen.infra.plugin.system.utils.impl.UnixShellAndFsUtilsImpl;
 import com.foilen.infra.plugin.system.utils.impl.UnixUsersAndGroupsUtilsImpl;
 import com.foilen.infra.plugin.system.utils.model.ApplicationBuildDetails;
 import com.foilen.infra.plugin.system.utils.model.ContainersManageContext;
@@ -81,10 +83,13 @@ import com.foilen.infra.resource.mariadb.MariaDBUser;
 import com.foilen.infra.resource.unixuser.UnixUser;
 import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
+import com.foilen.smalltools.tools.ConsoleTools;
 import com.foilen.smalltools.tools.DateTools;
+import com.foilen.smalltools.tools.FileTools;
 import com.foilen.smalltools.tools.InternetTools;
 import com.foilen.smalltools.tools.JsonTools;
 import com.foilen.smalltools.tools.LogbackTools;
+import com.foilen.smalltools.tools.ResourceTools;
 import com.foilen.smalltools.tools.SecureRandomTools;
 import com.foilen.smalltools.tools.SystemTools;
 import com.foilen.smalltools.tools.ThreadTools;
@@ -97,6 +102,8 @@ import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
 
 public class InfraBootstrapApp {
 
+    private static final String INFRA_DOCKER_MANAGER_NAME = "infra_docker_manager";
+
     private static final String INSERT_API_USER = "INSERT INTO api_user(is_admin, created_on, description, expire_on, user_id, user_hashed_key, version) VALUES(?, ?, ?, ?, ?, ?, 0)";
     private static final String INSERT_USER = "INSERT INTO user(is_admin, user_id, version) VALUES(?, ?, 0)";
 
@@ -107,6 +114,11 @@ public class InfraBootstrapApp {
     private static InfraBootstrapOptions options;
 
     private static RestTemplate restTemplate = new RestTemplate();
+    private static DockerUtils dockerUtils = new DockerUtilsImpl();
+    private static UnixShellAndFsUtils unixShellAndFsUtils = new UnixShellAndFsUtilsImpl();
+
+    private static final String hostFs = SystemTools.getPropertyOrEnvironment("HOSTFS", "/");
+    private static File tmpDirectory = Files.createTempDir();
     private static Map<String, String> answers = new HashMap<>();
     private static List<QuestionAndAnswer> genAnswers = new ArrayList<>();
 
@@ -142,8 +154,6 @@ public class InfraBootstrapApp {
         });
 
         // Install applications (docker)
-        DockerUtils dockerUtils = new DockerUtilsImpl();
-        File tmpDirectory = Files.createTempDir();
         System.out.println("\n---[ Install application (docker) ]---");
         List<Application> applications = resourceService.resourceFindAll(resourceService.createResourceQuery(Application.class));
         ContainersManageContext containersManageContext = new ContainersManageContext();
@@ -423,6 +433,10 @@ public class InfraBootstrapApp {
 
         ChangesContext changes = new ChangesContext(resourceService);
 
+        // Docker Manager
+        UnixUser managerUnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), INFRA_DOCKER_MANAGER_NAME, "/home/infra_docker_manager", null, null);
+        changes.resourceAdd(managerUnixUser);
+
         // Create machine
         String machineName = SystemTools.getPropertyOrEnvironment("MACHINE_HOSTNAME", JavaEnvironmentValues.getHostName());
         Machine machine = new Machine(machineName, InternetTools.getPublicIp());
@@ -687,7 +701,38 @@ public class InfraBootstrapApp {
             e.printStackTrace();
         }
 
-        // TODO Create and start infra-docker-manager container (persist the docker state)
+        // Create and start infra-docker-manager container
+        if (options.startDockerManager) {
+
+            // Application details
+            OnlineFileDetails dockerManagerVersion = getLatestVersionDockerHub("foilen/foilen-infra-docker-manager");
+
+            // Start
+            File startFile;
+            try {
+                startFile = File.createTempFile("start-docker-manager", ".sh");
+                FileTools.changePermissions(startFile.getAbsolutePath(), false, "700");
+                FileTools.writeFile(ResourceTools.getResourceAsString("start-docker-manager.sh", InfraBootstrapApp.class), startFile);
+            } catch (IOException e) {
+                throw new InfraBootstrapException("Problem creating start script", e);
+            }
+
+            int status = ConsoleTools.executeAndWait(new String[] { //
+                    startFile.getAbsolutePath(), //
+                    dockerManagerVersion.getVersion(), //
+                    infraUiConfig.getBaseUrl(), //
+                    machineApiIdAndKey.getA(), machineApiIdAndKey.getB(), //
+                    machineName //
+            });
+            if (status != 0) {
+                throw new InfraBootstrapException("Problem starting docker manager");
+            }
+
+            // Show information
+            System.out.println("\n\nThe Docker Manager version " + dockerManagerVersion.getVersion() + " is installed");
+            System.out.println();
+
+        }
 
         // Show information
         System.out.println("\n\nYou can go on " + infraUiConfig.getBaseUrl() + " and use the login " + loginConfig.getAdministratorEmail() + " with password 'qwerty'");

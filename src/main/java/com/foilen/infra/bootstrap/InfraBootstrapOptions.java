@@ -31,4 +31,7 @@ public class InfraBootstrapOptions {
     @Option(name = "--jsonAnswerFile", metaVar = "file", usage = "To use a JSON file with all the questions and answers (default: none)")
     public String jsonAnswerFile;
 
+    @Option(name = "--startDockerManager", usage = "To start Docker Manager that will use this new cluster")
+    public boolean startDockerManager;
+
 }
