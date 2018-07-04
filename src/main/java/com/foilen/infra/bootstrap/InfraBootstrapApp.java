@@ -55,10 +55,8 @@ import com.foilen.infra.plugin.core.system.fake.CommonServicesContextBean;
 import com.foilen.infra.plugin.core.system.fake.InitSystemBean;
 import com.foilen.infra.plugin.core.system.fake.InternalServicesContextBean;
 import com.foilen.infra.plugin.system.utils.DockerUtils;
-import com.foilen.infra.plugin.system.utils.UnixShellAndFsUtils;
 import com.foilen.infra.plugin.system.utils.UnixUsersAndGroupsUtils;
 import com.foilen.infra.plugin.system.utils.impl.DockerUtilsImpl;
-import com.foilen.infra.plugin.system.utils.impl.UnixShellAndFsUtilsImpl;
 import com.foilen.infra.plugin.system.utils.impl.UnixUsersAndGroupsUtilsImpl;
 import com.foilen.infra.plugin.system.utils.model.ApplicationBuildDetails;
 import com.foilen.infra.plugin.system.utils.model.ContainersManageContext;
@@ -115,9 +113,7 @@ public class InfraBootstrapApp {
 
     private static RestTemplate restTemplate = new RestTemplate();
     private static DockerUtils dockerUtils = new DockerUtilsImpl();
-    private static UnixShellAndFsUtils unixShellAndFsUtils = new UnixShellAndFsUtilsImpl();
 
-    private static final String hostFs = SystemTools.getPropertyOrEnvironment("HOSTFS", "/");
     private static File tmpDirectory = Files.createTempDir();
     private static Map<String, String> answers = new HashMap<>();
     private static List<QuestionAndAnswer> genAnswers = new ArrayList<>();
