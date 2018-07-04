@@ -543,10 +543,12 @@ public class InfraBootstrapApp {
 
         // Create Bind9
         UnixUser bind9UnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), "infra_bind9", "/home/infra_bind9", null, null);
-        changes.resourceAdd(bind9Server);
-        changes.resourceAdd(bind9UnixUser);
-        changes.linkAdd(bind9Server, LinkTypeConstants.RUN_AS, bind9UnixUser);
-        changes.linkAdd(bind9Server, LinkTypeConstants.INSTALLED_ON, machine);
+        if (!options.noDnsServer) {
+            changes.resourceAdd(bind9Server);
+            changes.resourceAdd(bind9UnixUser);
+            changes.linkAdd(bind9Server, LinkTypeConstants.RUN_AS, bind9UnixUser);
+            changes.linkAdd(bind9Server, LinkTypeConstants.INSTALLED_ON, machine);
+        }
 
         // Apply and start
         internalChangeService.changesExecute(changes);
