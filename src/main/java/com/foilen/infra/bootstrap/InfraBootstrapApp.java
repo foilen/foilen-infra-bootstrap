@@ -601,7 +601,14 @@ public class InfraBootstrapApp {
                 loginConfig.getMysqlDatabaseName(), //
                 loginConfig.getMysqlDatabaseUserName(), //
                 loginConfig.getMysqlDatabasePassword());
-        String adminUserId = loginJdbcTemplate.queryForObject("SELECT user_id FROM user", String.class);
+        String adminUserId = null;
+        while (adminUserId == null) {
+            try {
+                ThreadTools.sleep(500);
+                adminUserId = loginJdbcTemplate.queryForObject("SELECT user_id FROM user", String.class);
+            } catch (Exception e) {
+            }
+        }
         System.out.println("\tUser admin id: " + adminUserId);
 
         // Create admin User
