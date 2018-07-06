@@ -589,9 +589,9 @@ public class InfraBootstrapApp {
         System.out.println("\n===[ Add Machine API user ]===");
         Tuple2<String, String> machineApiIdAndKey = new Tuple2<>(SecureRandomTools.randomHexString(25), SecureRandomTools.randomHexString(25));
         uiJdbcTemplate.update(INSERT_API_USER, false, new Date(), "Bootstrap Initial Machine", DateTools.addDate(Calendar.HOUR, 2), machineApiIdAndKey.getA(),
-                BCrypt.hashpw(adminApiIdAndKey.getB(), BCrypt.gensalt(13)));
+                BCrypt.hashpw(machineApiIdAndKey.getB(), BCrypt.gensalt(13)));
         long machineApiId = uiJdbcTemplate.queryForObject("SELECT id FROM api_user WHERE user_id = ?", Long.class, machineApiIdAndKey.getA());
-        uiJdbcTemplate.update(INSERT_API_MACHINE_USER, machineApiId, machine.getName(), adminApiIdAndKey.getB());
+        uiJdbcTemplate.update(INSERT_API_MACHINE_USER, machineApiId, machine.getName(), machineApiIdAndKey.getB());
 
         // Get admin user id from login
         System.out.println("\n===[ Get admin user id ]===");
