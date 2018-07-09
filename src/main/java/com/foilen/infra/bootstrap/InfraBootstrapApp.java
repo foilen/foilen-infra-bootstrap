@@ -494,6 +494,10 @@ public class InfraBootstrapApp {
         infraConfig.setLoginDomainName(loginConfig.getLoginBaseUrl().split("/")[2]);
         infraConfig.setLoginEmailFrom(loginConfig.getFromEmail());
         infraConfig.setLoginAdministratorEmail(loginConfig.getAdministratorEmail());
+        infraConfig.setLoginMailHost(loginConfig.getMailHost());
+        infraConfig.setLoginMailPort(loginConfig.getMailPort());
+        infraConfig.setLoginMailUsername(loginConfig.getMailUsername());
+        infraConfig.setLoginMailPassword(loginConfig.getMailPassword());
         infraConfig.setLoginCsrfSalt(loginConfig.getCsrfSalt());
         infraConfig.setLoginCookieSignatureSalt(loginConfig.getCookieSignatureSalt());
         infraConfig.setLoginVersion(loginVersion);
@@ -706,8 +710,10 @@ public class InfraBootstrapApp {
             System.out.println("\nStack Trace:");
             e.printStackTrace();
             System.out.println("++++++++++++++++++++++++++++++++");
+            System.exit(1);
         } catch (Exception e) {
             e.printStackTrace();
+            System.exit(1);
         }
 
         // Create and start infra-docker-manager container

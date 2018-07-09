@@ -55,7 +55,7 @@ dependencies {
   compile "com.foilen:foilen-infra-resource-dns:0.1.0"
   compile "com.foilen:foilen-infra-resource-domain:0.1.0"
   compile "com.foilen:foilen-infra-resource-infraconfig:0.3.4"
-  compile "com.foilen:foilen-infra-resource-machine:0.1.0"
+  compile "com.foilen:foilen-infra-resource-machine:0.1.1"
   compile "com.foilen:foilen-infra-resource-mariadb:0.1.1"
   compile "com.foilen:foilen-infra-resource-unixuser:0.1.2"
   compile "com.foilen:foilen-infra-resource-webcertificate:0.1.0"
