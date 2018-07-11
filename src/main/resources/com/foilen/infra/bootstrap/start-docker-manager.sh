@@ -46,4 +46,4 @@ docker run \
   --hostname $machineName \
   --workdir /data \
   --name infra_docker_manager \
-  foilen/foilen-infra-docker-manager:$DOCKER_MANAGER_VERSION
+  foilen/foilen-infra-docker-manager:$DOCKER_MANAGER_VERSION --debug
