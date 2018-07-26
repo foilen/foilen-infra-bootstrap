@@ -163,6 +163,7 @@ public class InfraBootstrapApp {
 
             // Add to the container context
             DockerContainerOutputContext outputContext = new DockerContainerOutputContext(applicationName, applicationName, applicationName, buildDirectory);
+            outputContext.setDockerLogsMaxSizeMB(100);
             ApplicationBuildDetails applicationBuildDetails = new ApplicationBuildDetails();
             applicationBuildDetails.setApplicationDefinition(application.getApplicationDefinition());
             applicationBuildDetails.setOutputContext(outputContext);

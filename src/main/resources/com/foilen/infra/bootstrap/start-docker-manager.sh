@@ -45,5 +45,6 @@ docker run \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   --hostname $machineName \
   --workdir /data \
+  --log-driver json-file --log-opt max-size=100m \
   --name infra_docker_manager \
   foilen/foilen-infra-docker-manager:$DOCKER_MANAGER_VERSION --debug
