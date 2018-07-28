@@ -692,6 +692,15 @@ public class InfraBootstrapApp {
                 linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, plugin)));
             });
 
+            // Bind9
+            if (!options.noDnsServer) {
+                resourcesToAdd.add(new ResourceDetails(resourceService, bind9Server));
+                resourcesToAdd.add(new ResourceDetails(resourceService, bind9UnixUser));
+
+                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.RUN_AS, new ResourceDetails(resourceService, bind9UnixUser)));
+                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, machine)));
+            }
+
             ResponseWithStatus responseWithStatus = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
 
             // Check result
