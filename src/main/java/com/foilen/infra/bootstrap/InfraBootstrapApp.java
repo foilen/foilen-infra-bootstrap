@@ -495,10 +495,10 @@ public class InfraBootstrapApp {
         infraConfig.setLoginDomainName(loginConfig.getLoginBaseUrl().split("/")[2]);
         infraConfig.setLoginEmailFrom(loginConfig.getFromEmail());
         infraConfig.setLoginAdministratorEmail(loginConfig.getAdministratorEmail());
-        infraConfig.setLoginMailHost(loginConfig.getMailHost());
-        infraConfig.setLoginMailPort(loginConfig.getMailPort());
-        infraConfig.setLoginMailUsername(loginConfig.getMailUsername());
-        infraConfig.setLoginMailPassword(loginConfig.getMailPassword());
+        infraConfig.setMailHost(loginConfig.getMailHost());
+        infraConfig.setMailPort(loginConfig.getMailPort());
+        infraConfig.setMailUsername(loginConfig.getMailUsername());
+        infraConfig.setMailPassword(loginConfig.getMailPassword());
         infraConfig.setLoginCsrfSalt(loginConfig.getCsrfSalt());
         infraConfig.setLoginCookieSignatureSalt(loginConfig.getCookieSignatureSalt());
         infraConfig.setLoginVersion(loginVersion);
