@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -640,6 +641,7 @@ public class InfraBootstrapApp {
             ChangesRequest changesRequest = new ChangesRequest();
             List<ResourceDetails> resourcesToAdd = changesRequest.getResourcesToAdd();
             resourcesToAdd.add(new ResourceDetails(resourceService, machine));
+
             resourcesToAdd.add(new ResourceDetails(resourceService, loginDbUnixUser));
             resourcesToAdd.add(new ResourceDetails(resourceService, loginMariaDBServer));
             resourcesToAdd.add(new ResourceDetails(resourceService, loginMariaDBDatabase));
@@ -700,6 +702,16 @@ public class InfraBootstrapApp {
                 linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.RUN_AS, new ResourceDetails(resourceService, bind9UnixUser)));
                 linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, machine)));
             }
+
+            // Any missing unix users
+            Set<String> alreadyKnownUnixUsers = changesRequest.getResourcesToAdd().stream() //
+                    .filter(it -> it.getResourceType().equals("Unix User")) //
+                    .map(it -> (UnixUser) it.getResource()) //
+                    .map(it -> it.getName()) //
+                    .collect(Collectors.toSet());
+            resourceService.resourceFindAll(resourceService.createResourceQuery(UnixUser.class)).stream() //
+                    .filter(it -> !alreadyKnownUnixUsers.contains(it.getName())) //
+                    .forEach(it -> resourcesToAdd.add(new ResourceDetails(resourceService, it)));
 
             ResponseWithStatus responseWithStatus = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
 
