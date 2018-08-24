@@ -46,6 +46,7 @@ import com.foilen.infra.api.InfraApiServiceImpl;
 import com.foilen.infra.api.request.ChangesRequest;
 import com.foilen.infra.api.request.LinkDetails;
 import com.foilen.infra.api.request.ResourceDetails;
+import com.foilen.infra.api.response.ResponseMachineSetup;
 import com.foilen.infra.api.response.ResponseWithStatus;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
@@ -82,6 +83,7 @@ import com.foilen.infra.resource.mariadb.MariaDBUser;
 import com.foilen.infra.resource.unixuser.UnixUser;
 import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
+import com.foilen.smalltools.tools.CollectionsTools;
 import com.foilen.smalltools.tools.ConsoleTools;
 import com.foilen.smalltools.tools.DateTools;
 import com.foilen.smalltools.tools.FileTools;
@@ -185,158 +187,7 @@ public class InfraBootstrapApp {
 
     }
 
-    private static int getInt(String prompt, int defaultValue) {
-
-        while (true) {
-            String textValue = getText(prompt, String.valueOf(defaultValue));
-            try {
-                return Integer.valueOf(textValue);
-            } catch (Exception e) {
-                System.out.println("\t[ERROR] Must be numeric");
-            }
-        }
-
-    }
-
-    private static JdbcTemplate getJdbcTemplate(String serverName, int port, String databaseName, String databaseUserName, String databaseUserPassword) {
-        MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
-        dataSource.setServerName(serverName);
-        dataSource.setPort(port);
-        dataSource.setDatabaseName(databaseName);
-        dataSource.setUser(databaseUserName);
-        dataSource.setPassword(databaseUserPassword);
-        return new JdbcTemplate(dataSource);
-    }
-
-    private static OnlineFileDetails getLatestVersionBintray(String packageName) {
-        try {
-            // Get the version
-            Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
-            Elements links = doc.select("a");
-            String version = links.stream() //
-                    .map(it -> it.text().replace("/", "")) //
-                    .map(it -> it.split("\\.")) //
-                    .filter(it -> it.length == 3) //
-                    .map(it -> new int[] { Integer.valueOf(it[0]), Integer.valueOf(it[1]), Integer.valueOf(it[2]) }) //
-                    .sorted((a, b) -> ComparisonChain.start() //
-                            .compare(b[0], a[0]) //
-                            .compare(b[1], a[1]) //
-                            .compare(b[2], a[2]) //
-                            .result()) //
-                    .map(it -> "" + it[0] + "." + it[1] + "." + it[2]) //
-                    .findFirst().get(); //
-
-            // Get the jar
-            String jarUrl = "https://dl.bintray.com/foilen/maven/com/foilen/" + packageName + "/" + version + "/" + packageName + "-" + version + ".jar";
-
-            OnlineFileDetails onlineFileDetails = new OnlineFileDetails();
-            onlineFileDetails.setJarUrl(jarUrl);
-            onlineFileDetails.setVersion(version);
-            return onlineFileDetails;
-        } catch (IOException e) {
-            throw new InfraBootstrapException("Problem getting the folder", e);
-        }
-
-    }
-
-    private static OnlineFileDetails getLatestVersionDockerHub(String imageName) {
-        DockerHubTagsResponse tags = restTemplate.getForObject("https://hub.docker.com/v2/repositories/{imageName}/tags/", DockerHubTagsResponse.class,
-                Collections.singletonMap("imageName", imageName));
-
-        Optional<DockerHubTag> tag = tags.getResults().stream() //
-                .filter(it -> !"latest".equals(it.getName())) //
-                .findFirst();
-
-        if (tag.isPresent()) {
-            return new OnlineFileDetails() //
-                    .setVersion(tag.get().getName());
-        }
-
-        return null;
-    }
-
-    private static String getLine() {
-        try {
-            return br.readLine();
-        } catch (IOException e) {
-            throw new InfraBootstrapException(e);
-        }
-    }
-
-    private static String getText(String prompt, String defaultValue) {
-
-        // Fill Q&A if generating it
-        if (options.genJsonAnswers) {
-            genAnswers.add(new QuestionAndAnswer(prompt, defaultValue));
-            return defaultValue;
-        }
-
-        // Prompt
-        if (defaultValue == null) {
-            System.out.print(prompt + " [] ");
-        } else {
-            System.out.print(prompt + " [" + defaultValue + "] ");
-        }
-
-        // Auto answer from JSON file
-        if (!Strings.isNullOrEmpty(options.jsonAnswerFile)) {
-            String value = answers.get(prompt);
-            System.out.println(value);
-            return value;
-        }
-
-        // Auto answer with default
-        if (options.allDefaults) {
-            System.out.println();
-            return defaultValue;
-        }
-
-        // Get interactive input
-        String input = getLine();
-        if (Strings.isNullOrEmpty(input)) {
-            return defaultValue;
-        }
-
-        return input;
-    }
-
-    public static void main(String[] args) {
-
-        if (br == null) {
-            br = new BufferedReader(new InputStreamReader(System.in));
-        }
-
-        // Get the parameters
-        options = new InfraBootstrapOptions();
-        CmdLineParser cmdLineParser = new CmdLineParser(options);
-        try {
-            cmdLineParser.parseArgument(args);
-        } catch (CmdLineException e) {
-            e.printStackTrace();
-            showUsage();
-            return;
-        }
-
-        // Check help
-        if (options.help) {
-            showUsage();
-            return;
-        }
-
-        // Check valid options
-        if (options.genJsonAnswers && Strings.isNullOrEmpty(options.jsonAnswerFile)) {
-            System.out.println("When generating the answers, you must also specify in which file using --jsonAnswerFile");
-            return;
-        }
-
-        // Check the logging mode
-        if (options.debug) {
-            LogbackTools.changeConfig("/logback-debug.xml");
-        } else if (options.info) {
-            LogbackTools.changeConfig("/logback-info.xml");
-        } else {
-            LogbackTools.changeConfig("/logback-quiet.xml");
-        }
+    private static void createNewCluster() {
 
         // Load the json answer file if present
         if (!options.genJsonAnswers && !Strings.isNullOrEmpty(options.jsonAnswerFile)) {
@@ -779,6 +630,220 @@ public class InfraBootstrapApp {
         System.out.println();
 
         applicationContext.close();
+    }
+
+    private static int getInt(String prompt, int defaultValue) {
+
+        while (true) {
+            String textValue = getText(prompt, String.valueOf(defaultValue));
+            try {
+                return Integer.valueOf(textValue);
+            } catch (Exception e) {
+                System.out.println("\t[ERROR] Must be numeric");
+            }
+        }
+
+    }
+
+    private static JdbcTemplate getJdbcTemplate(String serverName, int port, String databaseName, String databaseUserName, String databaseUserPassword) {
+        MysqlConnectionPoolDataSource dataSource = new MysqlConnectionPoolDataSource();
+        dataSource.setServerName(serverName);
+        dataSource.setPort(port);
+        dataSource.setDatabaseName(databaseName);
+        dataSource.setUser(databaseUserName);
+        dataSource.setPassword(databaseUserPassword);
+        return new JdbcTemplate(dataSource);
+    }
+
+    private static OnlineFileDetails getLatestVersionBintray(String packageName) {
+        try {
+            // Get the version
+            Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
+            Elements links = doc.select("a");
+            String version = links.stream() //
+                    .map(it -> it.text().replace("/", "")) //
+                    .map(it -> it.split("\\.")) //
+                    .filter(it -> it.length == 3) //
+                    .map(it -> new int[] { Integer.valueOf(it[0]), Integer.valueOf(it[1]), Integer.valueOf(it[2]) }) //
+                    .sorted((a, b) -> ComparisonChain.start() //
+                            .compare(b[0], a[0]) //
+                            .compare(b[1], a[1]) //
+                            .compare(b[2], a[2]) //
+                            .result()) //
+                    .map(it -> "" + it[0] + "." + it[1] + "." + it[2]) //
+                    .findFirst().get(); //
+
+            // Get the jar
+            String jarUrl = "https://dl.bintray.com/foilen/maven/com/foilen/" + packageName + "/" + version + "/" + packageName + "-" + version + ".jar";
+
+            OnlineFileDetails onlineFileDetails = new OnlineFileDetails();
+            onlineFileDetails.setJarUrl(jarUrl);
+            onlineFileDetails.setVersion(version);
+            return onlineFileDetails;
+        } catch (IOException e) {
+            throw new InfraBootstrapException("Problem getting the folder", e);
+        }
+
+    }
+
+    private static OnlineFileDetails getLatestVersionDockerHub(String imageName) {
+        DockerHubTagsResponse tags = restTemplate.getForObject("https://hub.docker.com/v2/repositories/{imageName}/tags/", DockerHubTagsResponse.class,
+                Collections.singletonMap("imageName", imageName));
+
+        Optional<DockerHubTag> tag = tags.getResults().stream() //
+                .filter(it -> !"latest".equals(it.getName())) //
+                .findFirst();
+
+        if (tag.isPresent()) {
+            return new OnlineFileDetails() //
+                    .setVersion(tag.get().getName());
+        }
+
+        return null;
+    }
+
+    private static String getLine() {
+        try {
+            return br.readLine();
+        } catch (IOException e) {
+            throw new InfraBootstrapException(e);
+        }
+    }
+
+    private static String getText(String prompt, String defaultValue) {
+
+        // Fill Q&A if generating it
+        if (options.genJsonAnswers) {
+            genAnswers.add(new QuestionAndAnswer(prompt, defaultValue));
+            return defaultValue;
+        }
+
+        // Prompt
+        if (defaultValue == null) {
+            System.out.print(prompt + " [] ");
+        } else {
+            System.out.print(prompt + " [" + defaultValue + "] ");
+        }
+
+        // Auto answer from JSON file
+        if (!Strings.isNullOrEmpty(options.jsonAnswerFile)) {
+            String value = answers.get(prompt);
+            System.out.println(value);
+            return value;
+        }
+
+        // Auto answer with default
+        if (options.allDefaults) {
+            System.out.println();
+            return defaultValue;
+        }
+
+        // Get interactive input
+        String input = getLine();
+        if (Strings.isNullOrEmpty(input)) {
+            return defaultValue;
+        }
+
+        return input;
+    }
+
+    private static void joinExistingCluster() {
+
+        String machineName = SystemTools.getPropertyOrEnvironment("MACHINE_HOSTNAME", JavaEnvironmentValues.getHostName());
+
+        // Get the Machine Setup
+        System.out.println("\n---[ Get the Machine Setup ]---");
+        InfraApiService infraApiService = new InfraApiServiceImpl(options.uiApiBaseUrl, options.uiApiUserId, options.uiApiUserKey);
+        ResponseMachineSetup machineSetup = infraApiService.getInfraMachineApiService().getMachineSetup(machineName);
+
+        // Install unix users
+        System.out.println("\n---[ Install unix users ]---");
+        UnixUsersAndGroupsUtils unixUsersAndGroupsUtils = new UnixUsersAndGroupsUtilsImpl();
+        for (UnixUser unixUser : machineSetup.getItem().getUnixUsers()) {
+            System.out.println("\t" + unixUser.getName() + " (" + unixUser.getId() + ")");
+            unixUsersAndGroupsUtils.userCreate(unixUser.getName(), unixUser.getId(), unixUser.getHomeFolder(), null, null);
+        }
+
+        // Application details
+        OnlineFileDetails dockerManagerVersion = getLatestVersionDockerHub("foilen/foilen-infra-docker-manager");
+
+        // Start
+        File startFile;
+        try {
+            startFile = File.createTempFile("start-docker-manager", ".sh");
+            FileTools.changePermissions(startFile.getAbsolutePath(), false, "700");
+            FileTools.writeFile(ResourceTools.getResourceAsString("start-docker-manager.sh", InfraBootstrapApp.class), startFile);
+        } catch (IOException e) {
+            throw new InfraBootstrapException("Problem creating start script", e);
+        }
+
+        int status = ConsoleTools.executeAndWait(new String[] { //
+                startFile.getAbsolutePath(), //
+                dockerManagerVersion.getVersion(), //
+                options.uiApiBaseUrl, //
+                options.uiApiUserId, options.uiApiUserKey, //
+                machineName //
+        });
+        if (status != 0) {
+            throw new InfraBootstrapException("Problem starting docker manager");
+        }
+
+        // Show information
+        System.out.println("\n\nThe Docker Manager version " + dockerManagerVersion.getVersion() + " is installed");
+        System.out.println();
+
+    }
+
+    public static void main(String[] args) {
+
+        if (br == null) {
+            br = new BufferedReader(new InputStreamReader(System.in));
+        }
+
+        // Get the parameters
+        options = new InfraBootstrapOptions();
+        CmdLineParser cmdLineParser = new CmdLineParser(options);
+        try {
+            cmdLineParser.parseArgument(args);
+        } catch (CmdLineException e) {
+            e.printStackTrace();
+            showUsage();
+            return;
+        }
+
+        // Check help
+        if (options.help) {
+            showUsage();
+            return;
+        }
+
+        // Check valid options
+        if (options.genJsonAnswers && Strings.isNullOrEmpty(options.jsonAnswerFile)) {
+            System.out.println("When generating the answers, you must also specify in which file using --jsonAnswerFile");
+            return;
+        }
+        if (options.join) {
+            if (!CollectionsTools.isAllItemNotNull(options.uiApiBaseUrl, options.uiApiUserId, options.uiApiUserKey)) {
+                System.out.println("When joining an existing cluster, you must specify --uiApiBaseUrl, --uiApiUserId and --uiApiUserKey");
+                return;
+            }
+        }
+
+        // Check the logging mode
+        if (options.debug) {
+            LogbackTools.changeConfig("/logback-debug.xml");
+        } else if (options.info) {
+            LogbackTools.changeConfig("/logback-info.xml");
+        } else {
+            LogbackTools.changeConfig("/logback-quiet.xml");
+        }
+
+        // Create or join
+        if (options.join) {
+            joinExistingCluster();
+        } else {
+            createNewCluster();
+        }
     }
 
     private static void showUsage() {

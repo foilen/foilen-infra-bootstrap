@@ -24,6 +24,7 @@ public class InfraBootstrapOptions {
     @Option(name = "--info", usage = "To log information")
     public boolean info;
 
+    // Create a new cluster
     @Option(name = "--genJsonAnswers", usage = "To generate a JSON file with all the questions and defaults answers, then stop")
     public boolean genJsonAnswers;
     @Option(name = "--allDefaults", usage = "To use all the default answers")
@@ -36,5 +37,15 @@ public class InfraBootstrapOptions {
 
     @Option(name = "--startDockerManager", usage = "To start Docker Manager that will use this new cluster")
     public boolean startDockerManager;
+
+    // Join an existing cluster
+    @Option(name = "--join", usage = "To join an existing cluster")
+    public boolean join;
+    @Option(name = "--uiApiBaseUrl", metaVar = "url", usage = "The base url of the UI to join")
+    public String uiApiBaseUrl;
+    @Option(name = "--uiApiUserId", metaVar = "id", usage = "The machine user id for the UI to join")
+    public String uiApiUserId;
+    @Option(name = "--uiApiUserKey", metaVar = "key", usage = "The machine user key for the UI to join")
+    public String uiApiUserKey;
 
 }
