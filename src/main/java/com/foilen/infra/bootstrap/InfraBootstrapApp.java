@@ -41,13 +41,12 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import com.foilen.infra.api.InfraApiService;
-import com.foilen.infra.api.InfraApiServiceImpl;
-import com.foilen.infra.api.request.ChangesRequest;
-import com.foilen.infra.api.request.LinkDetails;
-import com.foilen.infra.api.request.ResourceDetails;
+import com.foilen.infra.api.model.LinkDetails;
+import com.foilen.infra.api.model.ResourceDetails;
+import com.foilen.infra.api.request.RequestChanges;
 import com.foilen.infra.api.response.ResponseMachineSetup;
-import com.foilen.infra.api.response.ResponseWithStatus;
+import com.foilen.infra.api.service.InfraApiService;
+import com.foilen.infra.api.service.InfraApiServiceImpl;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
 import com.foilen.infra.bootstrap.model.OnlineFileDetails;
@@ -83,6 +82,7 @@ import com.foilen.infra.resource.mariadb.MariaDBUser;
 import com.foilen.infra.resource.unixuser.UnixUser;
 import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
+import com.foilen.smalltools.restapi.model.FormResult;
 import com.foilen.smalltools.tools.CollectionsTools;
 import com.foilen.smalltools.tools.ConsoleTools;
 import com.foilen.smalltools.tools.DateTools;
@@ -489,69 +489,72 @@ public class InfraBootstrapApp {
         System.out.println("\n===[ Insert base objects via API ]===");
         try {
             InfraApiService infraApiService = new InfraApiServiceImpl("http://" + infraUiIp + ":8080", adminApiIdAndKey.getA(), adminApiIdAndKey.getB());
-            ChangesRequest changesRequest = new ChangesRequest();
+            RequestChanges changesRequest = new RequestChanges();
             List<ResourceDetails> resourcesToAdd = changesRequest.getResourcesToAdd();
-            resourcesToAdd.add(new ResourceDetails(resourceService, machine));
+            resourcesToAdd.add(new ResourceDetails("Machine", machine));
 
-            resourcesToAdd.add(new ResourceDetails(resourceService, loginDbUnixUser));
-            resourcesToAdd.add(new ResourceDetails(resourceService, loginMariaDBServer));
-            resourcesToAdd.add(new ResourceDetails(resourceService, loginMariaDBDatabase));
-            resourcesToAdd.add(new ResourceDetails(resourceService, loginMariaDBUser));
+            resourcesToAdd.add(new ResourceDetails("Unix User", loginDbUnixUser));
+            resourcesToAdd.add(new ResourceDetails("MariaDB Server", loginMariaDBServer));
+            resourcesToAdd.add(new ResourceDetails("MariaDB Database", loginMariaDBDatabase));
+            resourcesToAdd.add(new ResourceDetails("MariaDB User", loginMariaDBUser));
 
             List<LinkDetails> linksToAdd = changesRequest.getLinksToAdd();
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails(resourceService, loginDbUnixUser)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, machine)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", loginMariaDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails("Unix User", loginDbUnixUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", loginMariaDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("Machine", machine)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, loginMariaDBServer)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Database", loginMariaDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("MariaDB Server", loginMariaDBServer)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBUser), MariaDBUser.LINK_TYPE_ADMIN, new ResourceDetails(resourceService, loginMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBUser), MariaDBUser.LINK_TYPE_READ, new ResourceDetails(resourceService, loginMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, loginMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails(resourceService, loginMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", loginMariaDBUser), MariaDBUser.LINK_TYPE_ADMIN, new ResourceDetails("MariaDB Database", loginMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", loginMariaDBUser), MariaDBUser.LINK_TYPE_READ, new ResourceDetails("MariaDB Database", loginMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", loginMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails("MariaDB Database", loginMariaDBDatabase)));
 
-            resourcesToAdd.add(new ResourceDetails(resourceService, uiDbUnixUser));
-            resourcesToAdd.add(new ResourceDetails(resourceService, uiMariaDBServer));
-            resourcesToAdd.add(new ResourceDetails(resourceService, uiMariaDBDatabase));
-            resourcesToAdd.add(new ResourceDetails(resourceService, uiMariaDBUser));
+            resourcesToAdd.add(new ResourceDetails("Unix User", uiDbUnixUser));
+            resourcesToAdd.add(new ResourceDetails("MariaDB Server", uiMariaDBServer));
+            resourcesToAdd.add(new ResourceDetails("MariaDB Database", uiMariaDBDatabase));
+            resourcesToAdd.add(new ResourceDetails("MariaDB User", uiMariaDBUser));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails(resourceService, uiDbUnixUser)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, machine)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", uiMariaDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails("Unix User", uiDbUnixUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", uiMariaDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("Machine", machine)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, uiMariaDBServer)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Database", uiMariaDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("MariaDB Server", uiMariaDBServer)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBUser), MariaDBUser.LINK_TYPE_ADMIN, new ResourceDetails(resourceService, uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBUser), MariaDBUser.LINK_TYPE_READ, new ResourceDetails(resourceService, uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, uiMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails(resourceService, uiMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_ADMIN, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_READ, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
 
-            resourcesToAdd.add(new ResourceDetails(resourceService, loginUnixUser));
-            resourcesToAdd.add(new ResourceDetails(resourceService, uiUnixUser));
+            resourcesToAdd.add(new ResourceDetails("Unix User", loginUnixUser));
+            resourcesToAdd.add(new ResourceDetails("Unix User", uiUnixUser));
 
-            resourcesToAdd.add(new ResourceDetails(resourceService, infraConfig));
+            resourcesToAdd.add(new ResourceDetails("Infrastructure Configuration", infraConfig));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_LOGIN_INSTALLED_ON, new ResourceDetails(resourceService, machine)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails(resourceService, loginMariaDBServer)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails(resourceService, loginMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails(resourceService, loginMariaDBUser)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails(resourceService, loginUnixUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_INSTALLED_ON, new ResourceDetails("Machine", machine)));
+            linksToAdd.add(
+                    new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails("MariaDB Server", loginMariaDBServer)));
+            linksToAdd.add(
+                    new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails("MariaDB Database", loginMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails("MariaDB User", loginMariaDBUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails("Unix User", loginUnixUser)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_INSTALLED_ON, new ResourceDetails(resourceService, machine)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiMariaDBServer)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiMariaDBUser)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, uiUnixUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_INSTALLED_ON, new ResourceDetails("Machine", machine)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB Server", uiMariaDBServer)));
+            linksToAdd
+                    .add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB User", uiMariaDBUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("Unix User", uiUnixUser)));
 
             // Add plugins
             infraConfigPlugins.forEach(plugin -> {
-                resourcesToAdd.add(new ResourceDetails(resourceService, plugin));
-                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails(resourceService, plugin)));
+                resourcesToAdd.add(new ResourceDetails("Infrastructure Plugin", plugin));
+                linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("Infrastructure Plugin", plugin)));
             });
 
             // Bind9
             if (!options.noDnsServer) {
-                resourcesToAdd.add(new ResourceDetails(resourceService, bind9Server));
-                resourcesToAdd.add(new ResourceDetails(resourceService, bind9UnixUser));
+                resourcesToAdd.add(new ResourceDetails("Bind9 Server", bind9Server));
+                resourcesToAdd.add(new ResourceDetails("Unix User", bind9UnixUser));
 
-                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.RUN_AS, new ResourceDetails(resourceService, bind9UnixUser)));
-                linksToAdd.add(new LinkDetails(new ResourceDetails(resourceService, bind9Server), LinkTypeConstants.INSTALLED_ON, new ResourceDetails(resourceService, machine)));
+                linksToAdd.add(new LinkDetails(new ResourceDetails("Bind9 Server", bind9Server), LinkTypeConstants.RUN_AS, new ResourceDetails("Unix User", bind9UnixUser)));
+                linksToAdd.add(new LinkDetails(new ResourceDetails("Bind9 Server", bind9Server), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("Machine", machine)));
             }
 
             // Any missing unix users
@@ -562,17 +565,20 @@ public class InfraBootstrapApp {
                     .collect(Collectors.toSet());
             resourceService.resourceFindAll(resourceService.createResourceQuery(UnixUser.class)).stream() //
                     .filter(it -> !alreadyKnownUnixUsers.contains(it.getName())) //
-                    .forEach(it -> resourcesToAdd.add(new ResourceDetails(resourceService, it)));
+                    .forEach(it -> resourcesToAdd.add(new ResourceDetails("Unix User", it)));
 
-            ResponseWithStatus responseWithStatus = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
+            FormResult formResult = infraApiService.getInfraResourceApiService().applyChanges(changesRequest);
 
             // Check result
-            if (responseWithStatus.isSuccess()) {
+            if (formResult.isSuccess()) {
                 System.out.println("\tSUCCESS");
             } else {
                 System.out.println("\tERRORS:");
-                for (String error : responseWithStatus.getErrors()) {
+                for (String error : formResult.getGlobalErrors()) {
                     System.out.println("\t\t" + error);
+                }
+                if (formResult.getError() != null) {
+                    System.out.println("\t\t" + formResult.getError());
                 }
                 applicationContext.close();
                 return;
