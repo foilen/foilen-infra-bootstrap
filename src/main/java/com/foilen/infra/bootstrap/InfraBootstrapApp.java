@@ -209,8 +209,8 @@ public class InfraBootstrapApp {
 
         // Prepare config
         InfraUiConfig infraUiConfig = new InfraUiConfig();
-        infraUiConfig.setMailFrom(getText("[COMMON] Email address that sends information and alerts (mail from)", "infra-ui@localhost").toLowerCase());
-        infraUiConfig.setMailAlertsTo(getText("[COMMON] Email address where to send alerts", "admin@localhost").toLowerCase());
+        infraUiConfig.setMailFrom(getText("[COMMON] Email address that sends information and alerts (mail from)", "infra-ui@localhost.foilen-lab.com").toLowerCase());
+        infraUiConfig.setMailAlertsTo(getText("[COMMON] Email address where to send alerts", "admin@localhost.foilen-lab.com").toLowerCase());
         infraUiConfig.setMailHost(getText("[COMMON] Email server hostname/ip", "127.0.0.1"));
         infraUiConfig.setMailPort(getInt("[COMMON] Email server port", 25));
         infraUiConfig.setMailUsername(getText("[COMMON] Email server username", null));
@@ -219,7 +219,7 @@ public class InfraBootstrapApp {
         infraUiConfig.setCsrfSalt(SecureRandomTools.randomHexString(25));
 
         String uiVersion = getText("[UI] Docker Image Version", uiLatestVersion);
-        infraUiConfig.setBaseUrl(getText("[UI] Base URL", "http://infra.localhost").toLowerCase());
+        infraUiConfig.setBaseUrl(getText("[UI] Base URL", "http://infra.localhost.foilen-lab.com").toLowerCase());
         // TODO Support HTTPS
 
         infraUiConfig.setMysqlDatabaseName(getText("[UI] MySQL Database Name", "infra_ui").toLowerCase());
@@ -229,7 +229,7 @@ public class InfraBootstrapApp {
 
         infraUiConfig.getLoginConfigDetails().setAppId(SecureRandomTools.randomHexString(10));
         String loginVersion = getText("[Login] Docker Image Version", loginLatestVersion);
-        infraUiConfig.getLoginConfigDetails().setBaseUrl(getText("[LOGIN] Base URL", "http://login.localhost").toLowerCase());
+        infraUiConfig.getLoginConfigDetails().setBaseUrl(getText("[LOGIN] Base URL", "http://login.localhost.foilen-lab.com").toLowerCase());
         InfraLoginConfig loginConfig = new InfraLoginConfig();
         loginConfig.setAdministratorEmail(infraUiConfig.getMailAlertsTo());
         loginConfig.setApplicationId(infraUiConfig.getLoginConfigDetails().getAppId());
@@ -253,7 +253,7 @@ public class InfraBootstrapApp {
         Bind9Server bind9Server = new Bind9Server();
         bind9Server.setName("infra");
         bind9Server.setAdminEmail(infraUiConfig.getMailAlertsTo());
-        bind9Server.getNsDomainNames().add(getText("[DNS] Name Server Domain", "ns1.localhost").toLowerCase());
+        bind9Server.getNsDomainNames().add(getText("[DNS] Name Server Domain", "ns1.localhost.foilen-lab.com").toLowerCase());
 
         // Save gen to file if requested
         if (!genAnswers.isEmpty()) {
@@ -376,7 +376,7 @@ public class InfraBootstrapApp {
 
         // Get the most recent plugins
         System.out.println("\n===[ Get the most recent plugins list ]===");
-        List<String> pluginNames = Arrays.asList("apachephp", "application", "bind9", "composableapplication", "dns", "domain", "email", "infraconfig", "letsencrypt", "machine", "mariadb", "unixuser",
+        List<String> pluginNames = Arrays.asList("apachephp", "application", "bind9", "composableapplication", "dns", "email", "infraconfig", "letsencrypt", "machine", "mariadb", "unixuser",
                 "urlredirection", "webcertificate", "website");
         List<InfraConfigPlugin> infraConfigPlugins = new ArrayList<>();
         for (String nextPlugin : pluginNames) {

@@ -8,7 +8,7 @@ To bootstrap the infrastructure system. It can create a new cluster or join an e
 
 ### Prerequisite
 
-On Ubuntu 18.04:
+On Ubuntu 16.04:
 
 ```
 # Install base applications
