@@ -376,14 +376,20 @@ public class InfraBootstrapApp {
 
         // Get the most recent plugins
         System.out.println("\n===[ Get the most recent plugins list ]===");
-        List<String> pluginNames = Arrays.asList("apachephp", "application", "bind9", "composableapplication", "dns", "email", "infraconfig", "letsencrypt", "machine", "mariadb", "unixuser",
-                "urlredirection", "webcertificate", "website");
+        List<String> pluginNames = Arrays.asList("core");
         List<InfraConfigPlugin> infraConfigPlugins = new ArrayList<>();
         for (String nextPlugin : pluginNames) {
             System.out.println("Plugin: " + nextPlugin);
 
             try {
-                OnlineFileDetails onlineFileDetails = getLatestVersionBintray("foilen-infra-resource-" + nextPlugin);
+
+                OnlineFileDetails onlineFileDetails = getLatestVersionBintray("foilen-infra-plugins-" + nextPlugin);
+                if (onlineFileDetails == null) {
+                    onlineFileDetails = getLatestVersionBintray("foilen-infra-resource-" + nextPlugin);
+                }
+                if (onlineFileDetails == null) {
+                    throw new InfraBootstrapException("Could not find the plugin " + nextPlugin);
+                }
 
                 System.out.println("\tVersion: " + onlineFileDetails.getVersion() + " URL: " + onlineFileDetails.getJarUrl());
 
@@ -464,6 +470,7 @@ public class InfraBootstrapApp {
                 ThreadTools.sleep(500);
                 adminUserId = loginJdbcTemplate.queryForObject("SELECT user_id FROM user", String.class);
             } catch (Exception e) {
+                e.printStackTrace();
             }
         }
         System.out.println("\tUser admin id: " + adminUserId);
@@ -687,7 +694,7 @@ public class InfraBootstrapApp {
             onlineFileDetails.setVersion(version);
             return onlineFileDetails;
         } catch (IOException e) {
-            throw new InfraBootstrapException("Problem getting the folder", e);
+            return null;
         }
 
     }
@@ -765,7 +772,7 @@ public class InfraBootstrapApp {
         // Install unix users
         System.out.println("\n---[ Install unix users ]---");
         UnixUsersAndGroupsUtils unixUsersAndGroupsUtils = new UnixUsersAndGroupsUtilsImpl();
-        for (UnixUser unixUser : machineSetup.getItem().getUnixUsers()) {
+        for (com.foilen.infra.api.model.UnixUser unixUser : machineSetup.getItem().getUnixUsers()) {
             System.out.println("\t" + unixUser.getName() + " (" + unixUser.getId() + ")");
             unixUsersAndGroupsUtils.userCreate(unixUser.getName(), unixUser.getId(), unixUser.getHomeFolder(), null, null);
         }
