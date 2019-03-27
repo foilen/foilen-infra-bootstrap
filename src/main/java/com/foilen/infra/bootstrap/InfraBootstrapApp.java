@@ -176,7 +176,7 @@ public class InfraBootstrapApp {
         dockerUtils.containersManage(containersManageContext);
 
         for (String containerName : dockerState.getRunningContainersByName().keySet()) {
-            System.out.println("\t" + containerName + " [STARTED] (" + dockerState.getIpByName().get(containerName) + ")");
+            System.out.println("\t" + containerName + " [STARTED] (" + dockerState.getIpStateByName().get(containerName) + ")");
         }
         if (!dockerState.getFailedContainersByName().isEmpty()) {
             for (String containerName : dockerState.getFailedContainersByName().keySet()) {
@@ -419,7 +419,7 @@ public class InfraBootstrapApp {
 
         // Get the MySql connections
         JdbcTemplate uiJdbcTemplate = getJdbcTemplate( //
-                dockerState.getIpByName().get("infra_ui_db"), //
+                dockerState.getIpStateByName().get("infra_ui_db").getIp(), //
                 infraUiConfig.getMysqlPort(), //
                 infraUiConfig.getMysqlDatabaseName(), //
                 infraUiConfig.getMysqlDatabaseUserName(), //
@@ -459,7 +459,7 @@ public class InfraBootstrapApp {
         // Get admin user id from login
         System.out.println("\n===[ Get admin user id ]===");
         JdbcTemplate loginJdbcTemplate = getJdbcTemplate( //
-                dockerState.getIpByName().get("infra_login_db"), //
+                dockerState.getIpStateByName().get("infra_login_db").getIp(), //
                 loginConfig.getMysqlPort(), //
                 loginConfig.getMysqlDatabaseName(), //
                 loginConfig.getMysqlDatabaseUserName(), //
@@ -481,7 +481,7 @@ public class InfraBootstrapApp {
 
         // Wait for UI service to be open
         System.out.println("\n===[ Wait for the API service to be present ]===");
-        String infraUiIp = dockerState.getIpByName().get("infra_ui");
+        String infraUiIp = dockerState.getIpStateByName().get("infra_ui").getIp();
         while (true) {
             try {
                 new Socket(infraUiIp, 8080).close();
