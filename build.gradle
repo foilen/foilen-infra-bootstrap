@@ -3,12 +3,9 @@ buildscript {
     mavenLocal()
     jcenter()
   }
-  dependencies {
-    classpath 'io.spring.gradle:dependency-management-plugin:1.0.7.RELEASE'
-  }
 }
 plugins {
-    id 'org.springframework.boot' version '1.5.19.RELEASE'
+  id 'org.springframework.boot' version '2.1.5.RELEASE'
 }
 
 apply plugin: 'eclipse'
@@ -28,14 +25,7 @@ repositories {
   }
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-dependencyManagement {
-  imports {
-    mavenBom 'io.spring.platform:platform-bom:Brussels-SR16'
-  }
-}
+sourceCompatibility = 1.11
 
 eclipse {
   classpath {
@@ -57,6 +47,7 @@ dependencies {
   
   // Misc
   compile "args4j:args4j:$argsVersion"
+  compile "javax.xml.bind:jaxb-api"
   compile "org.jsoup:jsoup:1.11.3"
   
   // Databases
@@ -65,6 +56,6 @@ dependencies {
 
 }
 
-springBoot {
-  mainClass = 'com.foilen.infra.bootstrap.InfraBootstrapApp'
+bootJar {
+  mainClassName = 'com.foilen.infra.bootstrap.InfraBootstrapApp'
 }
