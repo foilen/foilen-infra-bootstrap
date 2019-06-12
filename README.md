@@ -57,6 +57,23 @@ docker run -ti \
   foilen/foilen-infra-bootstrap:latest
 ```
 
+It will create the *fcloud* network and ask you to use it. You can then run:
+
+```
+docker run -ti \
+  --rm \
+  --env HOSTFS=/hostfs/ \
+  --env MACHINE_HOSTNAME=$(hostname -f) \
+  --hostname $(hostname -f) \
+  --network fcloud \
+  --volume /etc:/hostfs/etc \
+  --volume /home:/hostfs/home \
+  --volume /usr/bin/docker:/usr/bin/docker \
+  --volume /usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1:/usr/lib/x86_64-linux-gnu/libltdl.so.7 \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  foilen/foilen-infra-bootstrap:latest
+```
+
 ### Generate questions in a file and feed it back
 
 Generate a JSON file with all questions and answers if you do not want to use the interactive mode:
@@ -90,6 +107,7 @@ docker run -ti \
   --env HOSTFS=/hostfs/ \
   --env MACHINE_HOSTNAME=$(hostname -f) \
   --hostname $(hostname -f) \
+  --network fcloud \
   --volume $DATA_DIR:/data \
   --volume /etc:/hostfs/etc \
   --volume /home:/hostfs/home \

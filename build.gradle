@@ -53,6 +53,7 @@ dependencies {
   // Databases
   compile "mysql:mysql-connector-java"
   compile "org.springframework.boot:spring-boot-starter-jdbc"
+  compile "org.springframework.data:spring-data-commons"
 
 }
 

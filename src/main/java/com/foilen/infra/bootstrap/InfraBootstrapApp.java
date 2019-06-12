@@ -82,6 +82,7 @@ import com.foilen.infra.resource.mariadb.MariaDBUser;
 import com.foilen.infra.resource.unixuser.UnixUser;
 import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
+import com.foilen.smalltools.TimeoutRunnableHandler;
 import com.foilen.smalltools.restapi.model.FormResult;
 import com.foilen.smalltools.tools.CollectionsTools;
 import com.foilen.smalltools.tools.ConsoleTools;
@@ -106,8 +107,6 @@ public class InfraBootstrapApp {
     private static final String INFRA_DOCKER_MANAGER_NAME = "infra_docker_manager";
 
     private static final String INSERT_API_USER = "INSERT INTO api_user(is_admin, created_on, description, expire_on, user_id, user_hashed_key, version) VALUES(?, ?, ?, ?, ?, ?, 0)";
-    private static final String INSERT_USER = "INSERT INTO user(is_admin, user_id, version) VALUES(?, ?, 0)";
-
     private static final String INSERT_API_MACHINE_USER = "INSERT INTO api_machine_user(id, machine_name, user_key) VALUES(?, ?, ?)";
 
     private static BufferedReader br;
@@ -189,6 +188,9 @@ public class InfraBootstrapApp {
 
     private static void createNewCluster() {
 
+        // Create the network (docker)
+        dockerUtils.networkCreateIfNotExists(DockerUtilsImpl.NETWORK_NAME, "172.20.0.0/16");
+
         // Load the json answer file if present
         if (!options.genJsonAnswers && !Strings.isNullOrEmpty(options.jsonAnswerFile)) {
             List<QuestionAndAnswer> questionAndAnswers = JsonTools.readFromFileAsList(options.jsonAnswerFile, QuestionAndAnswer.class);
@@ -260,6 +262,14 @@ public class InfraBootstrapApp {
             System.out.println("Saving questions and answers to " + options.jsonAnswerFile);
             JsonTools.writeToFile(options.jsonAnswerFile, genAnswers);
             return;
+        }
+
+        // Check on the right network
+        boolean isInGoodNetwork = InternetTools.getAllInterfacesIps().stream().anyMatch(ip -> ip.startsWith("172.20."));
+        if (!isInGoodNetwork) {
+            System.out.println("To create a new cluster, you need to run the bootstrap in the " + DockerUtilsImpl.NETWORK_NAME + " network.");
+            System.out.println("Add '--network " + DockerUtilsImpl.NETWORK_NAME + "' to your 'run' command.");
+            System.exit(1);
         }
 
         System.out.println("\nReview the config:");
@@ -431,15 +441,24 @@ public class InfraBootstrapApp {
         while (expectedTablesCount.get() < 2) {
             ThreadTools.sleep(1000);
             expectedTablesCount.set(0);
-            uiJdbcTemplate.query("show tables", new RowCallbackHandler() {
-                @Override
-                public void processRow(ResultSet rs) throws SQLException {
-                    String tableName = rs.getString(1);
-                    if ("api_machine_user".equals(tableName) || "api_user".equals(tableName)) {
-                        expectedTablesCount.incrementAndGet();
-                    }
-                }
-            });
+            try {
+
+                new TimeoutRunnableHandler(10000, () -> {
+
+                    uiJdbcTemplate.query("show tables", new RowCallbackHandler() {
+                        @Override
+                        public void processRow(ResultSet rs) throws SQLException {
+                            String tableName = rs.getString(1);
+                            if ("api_machine_user".equals(tableName) || "api_user".equals(tableName)) {
+                                expectedTablesCount.incrementAndGet();
+                            }
+                        }
+                    });
+                    System.out.println("Found " + expectedTablesCount.get() + " tables out of 2");
+                }).run();
+            } catch (Exception e) {
+                System.out.println("UI Database not ready");
+            }
         }
 
         // Create API user - Admin
@@ -477,7 +496,7 @@ public class InfraBootstrapApp {
 
         // Create admin User
         System.out.println("\n===[ Add admin user id ]===");
-        uiJdbcTemplate.update(INSERT_USER, true, adminUserId);
+        uiJdbcTemplate.update("INSERT INTO user(is_admin, user_id, version) VALUES(?, ?, 0)", true, adminUserId);
 
         // Wait for UI service to be open
         System.out.println("\n===[ Wait for the API service to be present ]===");
