@@ -35,6 +35,7 @@ import org.jsoup.select.Elements;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -488,6 +489,8 @@ public class InfraBootstrapApp {
             try {
                 ThreadTools.sleep(500);
                 adminUserId = loginJdbcTemplate.queryForObject("SELECT user_id FROM user", String.class);
+            } catch (EmptyResultDataAccessException e) {
+                System.out.println("Retry");
             } catch (Exception e) {
                 e.printStackTrace();
             }
