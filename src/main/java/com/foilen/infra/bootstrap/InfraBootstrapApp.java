@@ -14,8 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -29,15 +27,14 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import org.bson.Document;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -52,10 +49,12 @@ import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
 import com.foilen.infra.bootstrap.model.OnlineFileDetails;
 import com.foilen.infra.bootstrap.model.QuestionAndAnswer;
+import com.foilen.infra.plugin.core.system.common.context.CommonServicesContextBean;
+import com.foilen.infra.plugin.core.system.common.context.InternalServicesContextBean;
 import com.foilen.infra.plugin.core.system.common.service.IPPluginServiceImpl;
-import com.foilen.infra.plugin.core.system.fake.CommonServicesContextBean;
-import com.foilen.infra.plugin.core.system.fake.InitSystemBean;
-import com.foilen.infra.plugin.core.system.fake.InternalServicesContextBean;
+import com.foilen.infra.plugin.core.system.common.service.MessagingServiceLoggerImpl;
+import com.foilen.infra.plugin.core.system.common.service.TimerServiceInExecutorImpl;
+import com.foilen.infra.plugin.core.system.common.service.TranslationServiceImpl;
 import com.foilen.infra.plugin.system.utils.DockerUtils;
 import com.foilen.infra.plugin.system.utils.UnixUsersAndGroupsUtils;
 import com.foilen.infra.plugin.system.utils.impl.DockerUtilsImpl;
@@ -63,11 +62,13 @@ import com.foilen.infra.plugin.system.utils.impl.UnixUsersAndGroupsUtilsImpl;
 import com.foilen.infra.plugin.system.utils.model.ApplicationBuildDetails;
 import com.foilen.infra.plugin.system.utils.model.ContainersManageContext;
 import com.foilen.infra.plugin.system.utils.model.DockerState;
+import com.foilen.infra.plugin.v1.core.common.InfraPluginCommonInit;
 import com.foilen.infra.plugin.v1.core.context.ChangesContext;
+import com.foilen.infra.plugin.v1.core.context.CommonServicesContext;
+import com.foilen.infra.plugin.v1.core.context.internal.InternalServicesContext;
 import com.foilen.infra.plugin.v1.core.service.IPResourceService;
 import com.foilen.infra.plugin.v1.core.service.internal.InternalChangeService;
 import com.foilen.infra.plugin.v1.model.infra.InfraLoginConfig;
-import com.foilen.infra.plugin.v1.model.infra.InfraUiConfig;
 import com.foilen.infra.plugin.v1.model.outputter.docker.DockerContainerOutputContext;
 import com.foilen.infra.plugin.v1.model.resource.LinkTypeConstants;
 import com.foilen.infra.resource.application.Application;
@@ -76,10 +77,14 @@ import com.foilen.infra.resource.dns.DnsEntry;
 import com.foilen.infra.resource.dns.model.DnsEntryType;
 import com.foilen.infra.resource.infraconfig.InfraConfig;
 import com.foilen.infra.resource.infraconfig.InfraConfigPlugin;
+import com.foilen.infra.resource.infraconfig.model.InfraUiConfig;
 import com.foilen.infra.resource.machine.Machine;
 import com.foilen.infra.resource.mariadb.MariaDBDatabase;
 import com.foilen.infra.resource.mariadb.MariaDBServer;
 import com.foilen.infra.resource.mariadb.MariaDBUser;
+import com.foilen.infra.resource.mongodb.MongoDBDatabase;
+import com.foilen.infra.resource.mongodb.MongoDBServer;
+import com.foilen.infra.resource.mongodb.MongoDBUser;
 import com.foilen.infra.resource.unixuser.UnixUser;
 import com.foilen.infra.resource.unixuser.helper.UnixUserAvailableIdHelper;
 import com.foilen.smalltools.JavaEnvironmentValues;
@@ -101,14 +106,14 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.io.Files;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoDatabase;
 import com.mysql.cj.jdbc.MysqlConnectionPoolDataSource;
 
 public class InfraBootstrapApp {
 
     private static final String INFRA_DOCKER_MANAGER_NAME = "infra_docker_manager";
-
-    private static final String INSERT_API_USER = "INSERT INTO api_user(is_admin, created_on, description, expire_on, user_id, user_hashed_key, version) VALUES(?, ?, ?, ?, ?, ?, 0)";
-    private static final String INSERT_API_MACHINE_USER = "INSERT INTO api_machine_user(id, machine_name, user_key) VALUES(?, ?, ?)";
 
     private static BufferedReader br;
 
@@ -156,6 +161,7 @@ public class InfraBootstrapApp {
         System.out.println("\n---[ Install application (docker) ]---");
         List<Application> applications = resourceService.resourceFindAll(resourceService.createResourceQuery(Application.class));
         ContainersManageContext containersManageContext = new ContainersManageContext();
+        containersManageContext.setBaseOutputDirectory(tmpDirectory.getAbsolutePath());
         applications.stream().forEach(application -> {
             String applicationName = application.getName();
             String buildDirectory = tmpDirectory.getAbsolutePath() + "/" + applicationName + "/";
@@ -209,6 +215,11 @@ public class InfraBootstrapApp {
         if (uiVersionDetails != null) {
             uiLatestVersion = uiVersionDetails.getVersion();
         }
+        OnlineFileDetails mongodbVersionDetails = getLatestVersionDockerHub("foilen/fcloud-docker-mongodb");
+        String mongodbLatestVersion = "latest";
+        if (mongodbVersionDetails != null) {
+            mongodbLatestVersion = mongodbVersionDetails.getVersion();
+        }
 
         // Prepare config
         InfraUiConfig infraUiConfig = new InfraUiConfig();
@@ -225,13 +236,14 @@ public class InfraBootstrapApp {
         infraUiConfig.setBaseUrl(getText("[UI] Base URL", "http://infra.localhost.foilen-lab.com").toLowerCase());
         // TODO Support HTTPS
 
-        infraUiConfig.setMysqlDatabaseName(getText("[UI] MySQL Database Name", "infra_ui").toLowerCase());
-        infraUiConfig.setMysqlDatabaseUserName(getText("[UI] MySQL Database User Name", "infra_ui").toLowerCase());
-        infraUiConfig.setMysqlDatabasePassword(getText("[UI] MySQL Database User Password", SecureRandomTools.randomHexString(25)).toLowerCase());
+        String uiMongoDbDatabaseName = getText("[UI] MongoDB Database Name", "infra_ui").toLowerCase();
+        String uiMongoDbUserName = getText("[UI] MongoDB User Name", "infra_ui").toLowerCase();
+        String uiMongoDbPasswordName = getText("[UI] MongoDB User Password", SecureRandomTools.randomHexString(25).toLowerCase());
+        infraUiConfig.setMongoUri(getText("[UI] MongoDB URI", "mongodb://" + uiMongoDbUserName + ":" + uiMongoDbPasswordName + "@127.0.0.1:27017/" + uiMongoDbDatabaseName + "?authSource=admin"));
         infraUiConfig.setLoginCookieSignatureSalt(SecureRandomTools.randomHexString(25));
 
         infraUiConfig.getLoginConfigDetails().setAppId(SecureRandomTools.randomHexString(10));
-        String loginVersion = getText("[Login] Docker Image Version", loginLatestVersion);
+        String loginVersion = getText("[LOGIN] Docker Image Version", loginLatestVersion);
         infraUiConfig.getLoginConfigDetails().setBaseUrl(getText("[LOGIN] Base URL", "http://login.localhost.foilen-lab.com").toLowerCase());
         InfraLoginConfig loginConfig = new InfraLoginConfig();
         loginConfig.setAdministratorEmail(infraUiConfig.getMailAlertsTo());
@@ -285,15 +297,21 @@ public class InfraBootstrapApp {
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
         applicationContext.register(InfraBootstrapSpringConfig.class);
         applicationContext.register(CommonServicesContextBean.class);
-        applicationContext.register(InitSystemBean.class);
         applicationContext.register(InternalServicesContextBean.class);
         applicationContext.register(IPPluginServiceImpl.class);
-        applicationContext.scan("com.foilen.infra.plugin.core.system.fake.service");
+        applicationContext.register(MessagingServiceLoggerImpl.class);
+        applicationContext.register(TimerServiceInExecutorImpl.class);
+        applicationContext.register(TranslationServiceImpl.class);
+        applicationContext.scan("com.foilen.infra.plugin.core.system.memory.service");
         applicationContext.refresh();
 
         IPResourceService resourceService = applicationContext.getBean(IPResourceService.class);
         InternalChangeService internalChangeService = applicationContext.getBean(InternalChangeService.class);
         DockerState dockerState = new DockerState();
+
+        CommonServicesContext commonServicesContext = applicationContext.getBean(CommonServicesContext.class);
+        InternalServicesContext internalServicesContext = applicationContext.getBean(InternalServicesContext.class);
+        InfraPluginCommonInit.init(commonServicesContext, internalServicesContext);
 
         ChangesContext changes = new ChangesContext(resourceService);
 
@@ -329,22 +347,22 @@ public class InfraBootstrapApp {
 
         // Create infra-ui database container
         UnixUser uiDbUnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), "infra_ui_db", "/home/infra_ui_db", null, null);
-        MariaDBServer uiMariaDBServer = new MariaDBServer(infraUiConfig.getMysqlDatabaseName() + "_db", "Infra Ui Database", SecureRandomTools.randomHexString(25));
-        MariaDBDatabase uiMariaDBDatabase = new MariaDBDatabase(infraUiConfig.getMysqlDatabaseName(), "Infra Ui Database");
-        MariaDBUser uiMariaDBUser = new MariaDBUser(infraUiConfig.getMysqlDatabaseUserName(), "Infra Ui Database User", infraUiConfig.getMysqlDatabasePassword());
+        MongoDBServer uiMongoDBServer = new MongoDBServer(uiMongoDbDatabaseName + "_db", "Infra Ui Database", mongodbLatestVersion, SecureRandomTools.randomHexString(25));
+        MongoDBDatabase uiMongoDBDatabase = new MongoDBDatabase(uiMongoDbDatabaseName, "Infra Ui Database");
+        MongoDBUser uiMongoDBDBUser = new MongoDBUser(uiMongoDbUserName, "Infra Ui Database User", uiMongoDbPasswordName);
         changes.resourceAdd(uiDbUnixUser);
-        changes.resourceAdd(uiMariaDBServer);
-        changes.resourceAdd(uiMariaDBDatabase);
-        changes.resourceAdd(uiMariaDBUser);
+        changes.resourceAdd(uiMongoDBServer);
+        changes.resourceAdd(uiMongoDBDatabase);
+        changes.resourceAdd(uiMongoDBDBUser);
 
-        changes.linkAdd(uiMariaDBServer, LinkTypeConstants.RUN_AS, uiDbUnixUser);
-        changes.linkAdd(uiMariaDBServer, LinkTypeConstants.INSTALLED_ON, machine);
+        changes.linkAdd(uiMongoDBServer, LinkTypeConstants.RUN_AS, uiDbUnixUser);
+        changes.linkAdd(uiMongoDBServer, LinkTypeConstants.INSTALLED_ON, machine);
 
-        changes.linkAdd(uiMariaDBDatabase, LinkTypeConstants.INSTALLED_ON, uiMariaDBServer);
+        changes.linkAdd(uiMongoDBDatabase, LinkTypeConstants.INSTALLED_ON, uiMongoDBServer);
 
-        changes.linkAdd(uiMariaDBUser, MariaDBUser.LINK_TYPE_ADMIN, uiMariaDBDatabase);
-        changes.linkAdd(uiMariaDBUser, MariaDBUser.LINK_TYPE_READ, uiMariaDBDatabase);
-        changes.linkAdd(uiMariaDBUser, MariaDBUser.LINK_TYPE_WRITE, uiMariaDBDatabase);
+        changes.linkAdd(uiMongoDBDBUser, MongoDBUser.LINK_TYPE_ADMIN, uiMongoDBDatabase);
+        changes.linkAdd(uiMongoDBDBUser, MongoDBUser.LINK_TYPE_READ, uiMongoDBDatabase);
+        changes.linkAdd(uiMongoDBDBUser, MongoDBUser.LINK_TYPE_WRITE, uiMongoDBDatabase);
 
         // Create and start infra-ui container
         UnixUser loginUnixUser = new UnixUser(UnixUserAvailableIdHelper.getNextAvailableId(), "infra_login", "/home/infra_login", null, null);
@@ -380,9 +398,9 @@ public class InfraBootstrapApp {
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_LOGIN_USES, loginUnixUser);
 
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_INSTALLED_ON, machine);
-        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMariaDBServer);
-        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMariaDBDatabase);
-        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMariaDBUser);
+        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMongoDBServer);
+        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMongoDBDatabase);
+        changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiMongoDBDBUser);
         changes.linkAdd(infraConfig, InfraConfig.LINK_TYPE_UI_USES, uiUnixUser);
 
         // Get the most recent plugins
@@ -428,16 +446,10 @@ public class InfraBootstrapApp {
         internalChangeService.changesExecute(changes);
         applyState(resourceService, dockerState);
 
-        // Get the MySql connections
-        JdbcTemplate uiJdbcTemplate = getJdbcTemplate( //
-                dockerState.getIpStateByName().get("infra_ui_db").getIp(), //
-                infraUiConfig.getMysqlPort(), //
-                infraUiConfig.getMysqlDatabaseName(), //
-                infraUiConfig.getMysqlDatabaseUserName(), //
-                infraUiConfig.getMysqlDatabasePassword());
-
         // Wait for API tables
-        System.out.println("\n===[ Wait for the API Users tables to be present ]===");
+        String infraUiDbIp = dockerState.getIpStateByName().get("infra_ui_db").getIp();
+        MongoClient mongoClient = MongoClients.create(infraUiConfig.getMongoUri().replace("127.0.0.1", infraUiDbIp));
+        System.out.println("\n===[ Wait for the collections to be present ]===");
         AtomicInteger expectedTablesCount = new AtomicInteger();
         while (expectedTablesCount.get() < 2) {
             ThreadTools.sleep(1000);
@@ -446,16 +458,12 @@ public class InfraBootstrapApp {
 
                 new TimeoutRunnableHandler(10000, () -> {
 
-                    uiJdbcTemplate.query("show tables", new RowCallbackHandler() {
-                        @Override
-                        public void processRow(ResultSet rs) throws SQLException {
-                            String tableName = rs.getString(1);
-                            if ("api_machine_user".equals(tableName) || "api_user".equals(tableName)) {
-                                expectedTablesCount.incrementAndGet();
-                            }
-                        }
-                    });
-                    System.out.println("Found " + expectedTablesCount.get() + " tables out of 2");
+                    expectedTablesCount.set(0);
+                    for (@SuppressWarnings("unused")
+                    String name : mongoClient.getDatabase(uiMongoDbDatabaseName).listCollectionNames()) {
+                        expectedTablesCount.incrementAndGet();
+                    }
+                    System.out.println("Found " + expectedTablesCount.get() + " collections");
                 }).run();
             } catch (Exception e) {
                 System.out.println("UI Database not ready");
@@ -465,16 +473,31 @@ public class InfraBootstrapApp {
         // Create API user - Admin
         System.out.println("\n===[ Add Admin API user ]===");
         Tuple2<String, String> adminApiIdAndKey = new Tuple2<>(SecureRandomTools.randomHexString(25), SecureRandomTools.randomHexString(25));
-        uiJdbcTemplate.update(INSERT_API_USER, true, new Date(), "Bootstrap Admin", DateTools.addDate(Calendar.MINUTE, 15), adminApiIdAndKey.getA(),
-                BCrypt.hashpw(adminApiIdAndKey.getB(), BCrypt.gensalt(13)));
+        MongoDatabase mongoDatabase = mongoClient.getDatabase(uiMongoDbDatabaseName);
+        mongoDatabase.getCollection("userApi").insertOne( //
+                new Document("_id", adminApiIdAndKey.getA()) //
+                        .append("version", 1) //
+                        .append("_class", "com.foilen.infra.ui.repositories.documents.UserApi") //
+                        .append("description", "Admin") //
+                        .append("isAdmin", true) //
+                        .append("createdOn", new Date()) //
+                        .append("userHashedKey", BCrypt.hashpw(adminApiIdAndKey.getB(), BCrypt.gensalt(13))) //
+        );
 
         // Create API user - Machine
-        System.out.println("\n===[ Add Machine API user ]===");
+        System.out.println("\n===[ Add Machine API user ]==="); //
         Tuple2<String, String> machineApiIdAndKey = new Tuple2<>(SecureRandomTools.randomHexString(25), SecureRandomTools.randomHexString(25));
-        uiJdbcTemplate.update(INSERT_API_USER, false, new Date(), "Bootstrap Initial Machine", DateTools.addDate(Calendar.HOUR, 2), machineApiIdAndKey.getA(),
-                BCrypt.hashpw(machineApiIdAndKey.getB(), BCrypt.gensalt(13)));
-        long machineApiId = uiJdbcTemplate.queryForObject("SELECT id FROM api_user WHERE user_id = ?", Long.class, machineApiIdAndKey.getA());
-        uiJdbcTemplate.update(INSERT_API_MACHINE_USER, machineApiId, machine.getName(), machineApiIdAndKey.getB());
+        mongoDatabase.getCollection("userApiMachine").insertOne( //
+                new Document("_id", machineApiIdAndKey.getA()) //
+                        .append("version", 1) //
+                        .append("_class", "com.foilen.infra.ui.repositories.documents.UserApiMachine") //
+                        .append("description", "For machine " + machine.getName()) //
+                        .append("machineName", machine.getName()) //
+                        .append("isAdmin", false) //
+                        .append("createdOn", new Date()) //
+                        .append("expireOn", DateTools.addDate(Calendar.HOUR, 2)) //
+                        .append("userHashedKey", BCrypt.hashpw(machineApiIdAndKey.getB(), BCrypt.gensalt(13))) //
+        );
 
         // Get admin user id from login
         System.out.println("\n===[ Get admin user id ]===");
@@ -499,7 +522,12 @@ public class InfraBootstrapApp {
 
         // Create admin User
         System.out.println("\n===[ Add admin user id ]===");
-        uiJdbcTemplate.update("INSERT INTO user(is_admin, user_id, version) VALUES(?, ?, 0)", true, adminUserId);
+        mongoDatabase.getCollection("userHuman").insertOne( //
+                new Document("_id", adminUserId) //
+                        .append("version", 1) //
+                        .append("_class", "com.foilen.infra.ui.repositories.documents.UserHuman") //
+                        .append("isAdmin", true) //
+        );
 
         // Wait for UI service to be open
         System.out.println("\n===[ Wait for the API service to be present ]===");
@@ -538,18 +566,18 @@ public class InfraBootstrapApp {
             linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", loginMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails("MariaDB Database", loginMariaDBDatabase)));
 
             resourcesToAdd.add(new ResourceDetails("Unix User", uiDbUnixUser));
-            resourcesToAdd.add(new ResourceDetails("MariaDB Server", uiMariaDBServer));
-            resourcesToAdd.add(new ResourceDetails("MariaDB Database", uiMariaDBDatabase));
-            resourcesToAdd.add(new ResourceDetails("MariaDB User", uiMariaDBUser));
+            resourcesToAdd.add(new ResourceDetails("MongoDB Server", uiMongoDBServer));
+            resourcesToAdd.add(new ResourceDetails("MongoDB Database", uiMongoDBDatabase));
+            resourcesToAdd.add(new ResourceDetails("MongoDB User", uiMongoDBDBUser));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", uiMariaDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails("Unix User", uiDbUnixUser)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Server", uiMariaDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("Machine", machine)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB Server", uiMongoDBServer), LinkTypeConstants.RUN_AS, new ResourceDetails("Unix User", uiDbUnixUser)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB Server", uiMongoDBServer), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("Machine", machine)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB Database", uiMariaDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("MariaDB Server", uiMariaDBServer)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB Database", uiMongoDBDatabase), LinkTypeConstants.INSTALLED_ON, new ResourceDetails("MongoDB Server", uiMongoDBServer)));
 
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_ADMIN, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_READ, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails("MariaDB User", uiMariaDBUser), MariaDBUser.LINK_TYPE_WRITE, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB User", uiMongoDBDBUser), MongoDBUser.LINK_TYPE_ADMIN, new ResourceDetails("MongoDB Database", uiMongoDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB User", uiMongoDBDBUser), MongoDBUser.LINK_TYPE_READ, new ResourceDetails("MongoDB Database", uiMongoDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("MongoDB User", uiMongoDBDBUser), MongoDBUser.LINK_TYPE_WRITE, new ResourceDetails("MongoDB Database", uiMongoDBDatabase)));
 
             resourcesToAdd.add(new ResourceDetails("Unix User", loginUnixUser));
             resourcesToAdd.add(new ResourceDetails("Unix User", uiUnixUser));
@@ -565,10 +593,10 @@ public class InfraBootstrapApp {
             linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_LOGIN_USES, new ResourceDetails("Unix User", loginUnixUser)));
 
             linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_INSTALLED_ON, new ResourceDetails("Machine", machine)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB Server", uiMariaDBServer)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MongoDB Server", uiMongoDBServer)));
             linksToAdd
-                    .add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB Database", uiMariaDBDatabase)));
-            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MariaDB User", uiMariaDBUser)));
+                    .add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MongoDB Database", uiMongoDBDatabase)));
+            linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("MongoDB User", uiMongoDBDBUser)));
             linksToAdd.add(new LinkDetails(new ResourceDetails("Infrastructure Configuration", infraConfig), InfraConfig.LINK_TYPE_UI_USES, new ResourceDetails("Unix User", uiUnixUser)));
 
             // Add plugins
@@ -693,7 +721,7 @@ public class InfraBootstrapApp {
     private static OnlineFileDetails getLatestVersionBintray(String packageName) {
         try {
             // Get the version
-            Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
+            org.jsoup.nodes.Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
             Elements links = doc.select("a");
             String version = links.stream() //
                     .map(it -> it.text().replace("/", "")) //

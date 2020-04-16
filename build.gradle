@@ -5,7 +5,7 @@ buildscript {
   }
 }
 plugins {
-  id 'org.springframework.boot' version '2.1.5.RELEASE'
+  id 'org.springframework.boot' version '2.2.5.RELEASE'
 }
 
 apply plugin: 'eclipse'
@@ -39,7 +39,7 @@ dependencies {
   // Infra
   compile "com.foilen:foilen-login-api:$foilenLoginApiVersion"
   compile "com.foilen:foilen-infra-api:$foilenInfraApiVersion"
-  compile "com.foilen:foilen-infra-system-core-system-fake:$foilenInfraSystemVersion"
+  compile "com.foilen:foilen-infra-system-core-system-memory:$foilenInfraSystemVersion"
   compile "com.foilen:foilen-infra-system-core-execute:$foilenInfraSystemVersion"
   
   // Resources
@@ -52,6 +52,7 @@ dependencies {
   
   // Databases
   compile "mysql:mysql-connector-java"
+  compile "org.mongodb:mongo-java-driver"
   compile "org.springframework.boot:spring-boot-starter-jdbc"
   compile "org.springframework.data:spring-data-commons"
 
