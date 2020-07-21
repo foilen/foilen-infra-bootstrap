@@ -39,8 +39,8 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import com.foilen.infra.api.model.LinkDetails;
-import com.foilen.infra.api.model.ResourceDetails;
+import com.foilen.infra.api.model.resource.LinkDetails;
+import com.foilen.infra.api.model.resource.ResourceDetails;
 import com.foilen.infra.api.request.RequestChanges;
 import com.foilen.infra.api.response.ResponseMachineSetup;
 import com.foilen.infra.api.service.InfraApiService;
@@ -822,7 +822,7 @@ public class InfraBootstrapApp {
         // Install unix users
         System.out.println("\n---[ Install unix users ]---");
         UnixUsersAndGroupsUtils unixUsersAndGroupsUtils = new UnixUsersAndGroupsUtilsImpl();
-        for (com.foilen.infra.api.model.UnixUser unixUser : machineSetup.getItem().getUnixUsers()) {
+        for (com.foilen.infra.api.model.machine.UnixUser unixUser : machineSetup.getItem().getUnixUsers()) {
             System.out.println("\t" + unixUser.getName() + " (" + unixUser.getId() + ")");
             unixUsersAndGroupsUtils.userCreate(unixUser.getName(), unixUser.getId(), unixUser.getHomeFolder(), null, null);
         }
