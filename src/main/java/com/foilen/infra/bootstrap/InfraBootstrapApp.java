@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -105,7 +106,6 @@ import com.foilen.smalltools.tuple.Tuple2;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.io.Files;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
@@ -122,9 +122,17 @@ public class InfraBootstrapApp {
     private static RestTemplate restTemplate = new RestTemplate();
     private static DockerUtils dockerUtils = new DockerUtilsImpl();
 
-    private static File tmpDirectory = Files.createTempDir();
+    private static File tmpDirectory;
     private static Map<String, String> answers = new HashMap<>();
     private static List<QuestionAndAnswer> genAnswers = new ArrayList<>();
+
+    static {
+        try {
+            tmpDirectory = Files.createTempDirectory(null).toFile();
+        } catch (IOException e) {
+            throw new InfraBootstrapException("Could not create a temporary directory", e);
+        }
+    }
 
     private static void applyState(IPResourceService resourceService, DockerState dockerState) {
 

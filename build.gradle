@@ -5,13 +5,13 @@ buildscript {
   }
 }
 plugins {
-  id 'org.springframework.boot' version '2.2.5.RELEASE'
+  id "com.jfrog.bintray" version "$bintrayVersion"
+  id 'io.spring.dependency-management' version "$springDependencyManagementVersion"
+  id 'org.springframework.boot' version "$springBootVersion"
 }
 
 apply plugin: 'eclipse'
 apply plugin: 'java'
-apply plugin: 'io.spring.dependency-management'
-
 
 group = 'com.foilen'
 version = System.getenv('VERSION')?:'master-SNAPSHOT'
@@ -48,11 +48,11 @@ dependencies {
   // Misc
   compile "args4j:args4j:$argsVersion"
   compile "javax.xml.bind:jaxb-api"
-  compile "org.jsoup:jsoup:1.11.3"
+  compile "org.jsoup:jsoup:$jsoupVersion"
   
   // Databases
   compile "mysql:mysql-connector-java"
-  compile "org.mongodb:mongo-java-driver"
+  compile "org.mongodb:mongodb-driver-sync:$mongoVersion"
   compile "org.springframework.boot:spring-boot-starter-jdbc"
   compile "org.springframework.data:spring-data-commons"
 
