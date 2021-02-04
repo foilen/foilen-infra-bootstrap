@@ -184,7 +184,7 @@ public class InfraBootstrapApp {
             ApplicationBuildDetails applicationBuildDetails = new ApplicationBuildDetails();
             applicationBuildDetails.setApplicationDefinition(application.getApplicationDefinition());
             applicationBuildDetails.setOutputContext(outputContext);
-            containersManageContext.getAlwaysRunningApplications().add(applicationBuildDetails);
+            containersManageContext.getApplicationBuildDetails().add(applicationBuildDetails);
         });
         containersManageContext.setDockerState(dockerState);
         dockerUtils.containersManage(containersManageContext);
