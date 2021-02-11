@@ -1,11 +1,4 @@
-buildscript {
-  repositories {
-    mavenLocal()
-    jcenter()
-  }
-}
 plugins {
-  id "com.jfrog.bintray" version "$bintrayVersion"
   id 'io.spring.dependency-management' version "$springDependencyManagementVersion"
   id 'org.springframework.boot' version "$springBootVersion"
 }
@@ -18,14 +11,10 @@ version = System.getenv('VERSION')?:'master-SNAPSHOT'
 
 repositories {
   mavenLocal()
-  jcenter()
   mavenCentral()
-  maven {
-    url 'https://dl.bintray.com/foilen/maven/'
-  }
 }
 
-sourceCompatibility = 1.11
+sourceCompatibility = 11
 
 eclipse {
   classpath {
