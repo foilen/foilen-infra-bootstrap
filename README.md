@@ -53,6 +53,7 @@ docker run -ti \
   --volume /home:/hostfs/home \
   --volume /usr/bin/docker:/usr/bin/docker \
   --volume /usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1:/usr/lib/x86_64-linux-gnu/libltdl.so.7 \
+  --volume /var/infra-apps/:/hostfs/var/infra-apps/ \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   foilen/foilen-infra-bootstrap:latest
 ```
@@ -70,6 +71,7 @@ docker run -ti \
   --volume /home:/hostfs/home \
   --volume /usr/bin/docker:/usr/bin/docker \
   --volume /usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1:/usr/lib/x86_64-linux-gnu/libltdl.so.7 \
+  --volume /var/infra-apps/:/hostfs/var/infra-apps/ \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   foilen/foilen-infra-bootstrap:latest
 ```
@@ -92,6 +94,7 @@ docker run -ti \
   --volume /home:/hostfs/home \
   --volume /usr/bin/docker:/usr/bin/docker \
   --volume /usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1:/usr/lib/x86_64-linux-gnu/libltdl.so.7 \
+  --volume /var/infra-apps/:/hostfs/var/infra-apps/ \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   foilen/foilen-infra-bootstrap:latest \
   --genJsonAnswers --jsonAnswerFile /data/bootstrap.json
@@ -113,6 +116,7 @@ docker run -ti \
   --volume /home:/hostfs/home \
   --volume /usr/bin/docker:/usr/bin/docker \
   --volume /usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1:/usr/lib/x86_64-linux-gnu/libltdl.so.7 \
+  --volume /var/infra-apps/:/hostfs/var/infra-apps/ \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   foilen/foilen-infra-bootstrap:latest \
   --jsonAnswerFile /data/bootstrap.json --startDockerManager --info | tee bootstrap.log

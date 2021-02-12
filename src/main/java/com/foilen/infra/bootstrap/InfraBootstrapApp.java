@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -68,6 +69,7 @@ import com.foilen.infra.plugin.v1.core.context.CommonServicesContext;
 import com.foilen.infra.plugin.v1.core.context.internal.InternalServicesContext;
 import com.foilen.infra.plugin.v1.core.service.IPResourceService;
 import com.foilen.infra.plugin.v1.core.service.internal.InternalChangeService;
+import com.foilen.infra.plugin.v1.model.base.IPApplicationDefinitionVolume;
 import com.foilen.infra.plugin.v1.model.infra.InfraLoginConfig;
 import com.foilen.infra.plugin.v1.model.outputter.docker.DockerContainerOutputContext;
 import com.foilen.infra.plugin.v1.model.resource.LinkTypeConstants;
@@ -179,6 +181,9 @@ public class InfraBootstrapApp {
             // Add to the container context
             DockerContainerOutputContext outputContext = new DockerContainerOutputContext(applicationName, applicationName, applicationName, buildDirectory);
             outputContext.setDockerLogsMaxSizeMB(100);
+            outputContext.setHaProxyCommand("/_infra-apps/haproxy");
+            outputContext.setServicesExecuteCommand("/_infra-apps/services-execution");
+            outputContext.getInfraVolumes().add(new IPApplicationDefinitionVolume("/var/infra-apps/", "/_infra-apps", 0L, 0L, "555", true));
             ApplicationBuildDetails applicationBuildDetails = new ApplicationBuildDetails();
             applicationBuildDetails.setApplicationDefinition(application.getApplicationDefinition());
             applicationBuildDetails.setOutputContext(outputContext);
@@ -199,7 +204,7 @@ public class InfraBootstrapApp {
 
     }
 
-    private static void createNewCluster() {
+    private static void createNewCluster() throws Exception {
 
         // Create the network (docker)
         dockerUtils.networkCreateIfNotExists(DockerUtilsImpl.NETWORK_NAME, "172.20.0.0/16");
@@ -449,6 +454,10 @@ public class InfraBootstrapApp {
             changes.linkAdd(bind9Server, LinkTypeConstants.RUN_AS, bind9UnixUser);
             changes.linkAdd(bind9Server, LinkTypeConstants.INSTALLED_ON, machine);
         }
+
+        // Copy infra apps
+        Files.copy(new File("/usr/sbin/haproxy").toPath(), new File("/hostfs/var/infra-apps/haproxy").toPath(), StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(new File("/usr/sbin/services-execution").toPath(), new File("/hostfs/var/infra-apps/services-execution").toPath(), StandardCopyOption.REPLACE_EXISTING);
 
         // Apply and start
         internalChangeService.changesExecute(changes);
@@ -834,7 +843,7 @@ public class InfraBootstrapApp {
 
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
 
         if (br == null) {
             br = new BufferedReader(new InputStreamReader(System.in));
