@@ -29,8 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.bson.Document;
-import org.jsoup.Jsoup;
-import org.jsoup.select.Elements;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -50,6 +48,7 @@ import com.foilen.infra.bootstrap.dockerhub.DockerHubTag;
 import com.foilen.infra.bootstrap.dockerhub.DockerHubTagsResponse;
 import com.foilen.infra.bootstrap.model.OnlineFileDetails;
 import com.foilen.infra.bootstrap.model.QuestionAndAnswer;
+import com.foilen.infra.bootstrap.services.MavenCentralService;
 import com.foilen.infra.plugin.core.system.common.context.CommonServicesContextBean;
 import com.foilen.infra.plugin.core.system.common.context.InternalServicesContextBean;
 import com.foilen.infra.plugin.core.system.common.service.IPPluginServiceImpl;
@@ -105,7 +104,6 @@ import com.foilen.smalltools.tools.ThreadTools;
 import com.foilen.smalltools.tuple.Tuple2;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.ComparisonChain;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
@@ -321,6 +319,8 @@ public class InfraBootstrapApp {
         InternalServicesContext internalServicesContext = applicationContext.getBean(InternalServicesContext.class);
         InfraPluginCommonInit.init(commonServicesContext, internalServicesContext);
 
+        MavenCentralService mavenCentralService = applicationContext.getBean(MavenCentralService.class);
+
         ChangesContext changes = new ChangesContext(resourceService);
 
         // Docker Manager
@@ -420,9 +420,9 @@ public class InfraBootstrapApp {
 
             try {
 
-                OnlineFileDetails onlineFileDetails = getLatestVersionBintray("foilen-infra-plugins-" + nextPlugin);
+                OnlineFileDetails onlineFileDetails = mavenCentralService.getLatestVersion("foilen-infra-plugins-" + nextPlugin);
                 if (onlineFileDetails == null) {
-                    onlineFileDetails = getLatestVersionBintray("foilen-infra-resource-" + nextPlugin);
+                    onlineFileDetails = mavenCentralService.getLatestVersion("foilen-infra-resource-" + nextPlugin);
                 }
                 if (onlineFileDetails == null) {
                     throw new InfraBootstrapException("Could not find the plugin " + nextPlugin);
@@ -724,37 +724,6 @@ public class InfraBootstrapApp {
         dataSource.setUser(databaseUserName);
         dataSource.setPassword(databaseUserPassword);
         return new JdbcTemplate(dataSource);
-    }
-
-    private static OnlineFileDetails getLatestVersionBintray(String packageName) {
-        try {
-            // Get the version
-            org.jsoup.nodes.Document doc = Jsoup.connect("https://dl.bintray.com/foilen/maven/com/foilen/" + packageName).get();
-            Elements links = doc.select("a");
-            String version = links.stream() //
-                    .map(it -> it.text().replace("/", "")) //
-                    .map(it -> it.split("\\.")) //
-                    .filter(it -> it.length == 3) //
-                    .map(it -> new int[] { Integer.valueOf(it[0]), Integer.valueOf(it[1]), Integer.valueOf(it[2]) }) //
-                    .sorted((a, b) -> ComparisonChain.start() //
-                            .compare(b[0], a[0]) //
-                            .compare(b[1], a[1]) //
-                            .compare(b[2], a[2]) //
-                            .result()) //
-                    .map(it -> "" + it[0] + "." + it[1] + "." + it[2]) //
-                    .findFirst().get(); //
-
-            // Get the jar
-            String jarUrl = "https://dl.bintray.com/foilen/maven/com/foilen/" + packageName + "/" + version + "/" + packageName + "-" + version + ".jar";
-
-            OnlineFileDetails onlineFileDetails = new OnlineFileDetails();
-            onlineFileDetails.setJarUrl(jarUrl);
-            onlineFileDetails.setVersion(version);
-            return onlineFileDetails;
-        } catch (IOException e) {
-            return null;
-        }
-
     }
 
     private static OnlineFileDetails getLatestVersionDockerHub(String imageName) {

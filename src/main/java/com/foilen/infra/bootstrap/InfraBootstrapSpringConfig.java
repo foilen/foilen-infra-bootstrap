@@ -10,12 +10,14 @@
 package com.foilen.infra.bootstrap;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
 
 import com.foilen.smalltools.tools.CharsetTools;
 
 @Configuration
+@ComponentScan
 public class InfraBootstrapSpringConfig {
 
     @Bean
