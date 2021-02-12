@@ -15,3 +15,4 @@ bin/
 
 # Projects
 _*
+.attach_pid*
