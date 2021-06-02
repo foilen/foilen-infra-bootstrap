@@ -12,14 +12,15 @@ On Ubuntu 16.04:
 
 ```
 # Install base applications
-echo "deb https://dl.bintray.com/foilen/debian stable main" | tee /etc/apt/sources.list.d/foilen.list
-apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61
+cd /tmp
+wget https://deploy.foilen.com/docker-sudo/docker-sudo_1.3.2_amd64.deb
+dpkg -i docker-sudo_1.3.2_amd64.deb
 
 apt update && \
 apt -y dist-upgrade && \
 apt -y autoremove
 
-apt install -y haveged docker.io docker-sudo
+apt install -y haveged docker.io
 
 # Add swap memory (5G in 5 1G files. Useful if you want to easily remove some G later)
 for i in {1..5}; do
