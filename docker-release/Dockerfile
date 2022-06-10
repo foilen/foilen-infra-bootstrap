@@ -1,17 +1,21 @@
-FROM openjdk:11-jre-slim
+FROM ubuntu:22.04
 
 RUN export TERM=dumb ; \
   apt-get update && apt-get install -y \
-    apt-transport-https apt-utils curl ca-certificates gnupg \
+    curl \
+    gnupg \
+    wget \
+    openjdk-11-jre \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Infra apps to share
-RUN export TERM=dumb ; \
-  echo "deb https://dl.bintray.com/foilen/debian stable main" > /etc/apt/sources.list.d/foilen.list \
-  && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 379CE192D401AB61 \
-  && apt-get update && apt-get install -y \
-    foilen-haproxy=1.7.12-2 services-execution=1.0.0 \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN wget https://deploy.foilen.com/foilen-haproxy/foilen-haproxy_1.7.14-1_amd64.deb && \
+  dpkg -i foilen-haproxy_1.7.14-1_amd64.deb && \
+  rm foilen-haproxy_1.7.14-1_amd64.deb
+
+RUN wget https://deploy.foilen.com/services-execution/services-execution_1.0.1_amd64.deb && \
+  dpkg -i services-execution_1.0.1_amd64.deb && \
+  rm services-execution_1.0.1_amd64.deb
 
 COPY app/ /app
 
